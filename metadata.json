@@ -1,0 +1,8 @@
+{
+  "name": "FRG-8800 Virtual Controller",
+  "description": "A high-fidelity C++ interface for Yaesu FRG-8800 control with custom frequency banks and interactive tuning dials.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
