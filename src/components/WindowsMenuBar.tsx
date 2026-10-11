@@ -16,6 +16,9 @@ import {
   Info,
   Radio,
   ExternalLink,
+  Minus,
+  Square,
+  X,
 } from 'lucide-react';
 import { SerialStatus } from '../utils/webSerialManager';
 import { VFD_COLOR_PRESETS } from '../data/swPacificBanks';
@@ -45,6 +48,8 @@ interface WindowsMenuBarProps {
   onToggleDtr: () => void;
   rtsEnabled: boolean;
   onToggleRts: () => void;
+  isMinimized?: boolean;
+  onToggleMinimize?: () => void;
 }
 
 export const WindowsMenuBar: React.FC<WindowsMenuBarProps> = ({
@@ -72,6 +77,8 @@ export const WindowsMenuBar: React.FC<WindowsMenuBarProps> = ({
   onToggleDtr,
   rtsEnabled,
   onToggleRts,
+  isMinimized = false,
+  onToggleMinimize,
 }) => {
   const [activeMenu, setActiveMenu] = useState<'file' | 'view' | 'options' | 'help' | null>(null);
   const [colorSubmenuOpen, setColorSubmenuOpen] = useState(false);
@@ -258,6 +265,24 @@ export const WindowsMenuBar: React.FC<WindowsMenuBarProps> = ({
                 <span>CAT Packet Traffic Log & Hex Inspector</span>
               </span>
               <span className="text-[10px] text-slate-400 font-mono">F3</span>
+            </button>
+
+            {/* Minimized Frequency Window ("FRG-8800 Freq" Stay on Top) */}
+            <button
+              type="button"
+              onClick={() => {
+                onToggleMinimize?.();
+                closeMenus();
+              }}
+              className="w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-[#28313f] hover:text-cyan-300 cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-4 text-center">
+                  {isMinimized ? <Check className="w-3.5 h-3.5 text-cyan-400 inline" /> : null}
+                </span>
+                <span className="font-medium text-cyan-300">Minimized Window ("FRG-8800 Freq" Stay on Top)</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">Ctrl+M</span>
             </button>
 
             <div className="my-1 border-t border-[#313742]" />
@@ -604,19 +629,67 @@ export const WindowsMenuBar: React.FC<WindowsMenuBarProps> = ({
         )}
       </div>
 
-      {/* RIGHT SIDE OF MENU BAR: Quick Status Pill */}
-      <div className="ml-auto px-3 flex items-center gap-3 text-[11px] font-mono">
-        {serialStatus.connected ? (
-          <span className="text-emerald-400 flex items-center gap-1 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>ONLINE: {serialStatus.portName || 'FTDI'} (4800 8N2) [RTS/DTR: OFF]</span>
-          </span>
-        ) : (
-          <span className="text-slate-400 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-            <span>OFFLINE — Connect via Options Menu</span>
-          </span>
-        )}
+      {/* RIGHT SIDE OF MENU BAR: Quick Status Pill & Window Action Controls */}
+      <div className="ml-auto flex items-center gap-2">
+        <div className="px-3 flex items-center gap-3 text-[11px] font-mono">
+          {serialStatus.connected ? (
+            <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>ONLINE: {serialStatus.portName || 'FTDI'}</span>
+            </span>
+          ) : (
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+              <span>OFFLINE</span>
+            </span>
+          )}
+        </div>
+
+        {/* WINDOWS 11 TITLE BAR BUTTONS */}
+        <div className="flex items-center border-l border-[#363c48]">
+          {/* Minimize Button: Closes down to minimal "FRG-8800 Freq" window */}
+          <button
+            type="button"
+            onClick={onToggleMinimize}
+            className={`w-10 h-7 flex items-center justify-center transition-colors cursor-pointer ${
+              isMinimized
+                ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30'
+                : 'hover:bg-white/10 text-slate-300 hover:text-white'
+            }`}
+            title="Minimize to Minimal Frequency Window ('FRG-8800 Freq' Stay on Top)"
+            aria-label="Minimize"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Maximize / Restore Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (isMinimized && onToggleMinimize) onToggleMinimize();
+            }}
+            className="w-10 h-7 flex items-center justify-center hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title={isMinimized ? 'Restore Full Front Panel' : 'Full Front Panel'}
+            aria-label="Maximize"
+          >
+            <Square className="w-3 h-3" />
+          </button>
+
+          {/* Close Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('Do you wish to exit Yaesu FRG-8800 CAT Controller?')) {
+                window.close();
+              }
+            }}
+            className="w-10 h-7 flex items-center justify-center hover:bg-rose-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title="Close Application"
+            aria-label="Close"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );

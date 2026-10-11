@@ -16,6 +16,8 @@ import {
   Sparkles,
   Download,
   Upload,
+  FolderPlus,
+  Settings,
 } from 'lucide-react';
 
 interface MemoryBanksManagerProps {
@@ -31,6 +33,7 @@ interface MemoryBanksManagerProps {
   onSaveFrequency: (entry: FrequencyEntry, isNew: boolean) => void;
   onDeleteFrequency: (id: string) => void;
   onCreateBank: (bank: MemoryBank) => void;
+  onUpdateBank?: (bank: MemoryBank) => void;
   onDeleteBank: (bankId: string) => void;
   onExportJson: () => void;
   onTriggerScan?: () => void;
@@ -54,6 +57,7 @@ export const MemoryBanksManager: React.FC<MemoryBanksManagerProps> = ({
   onSaveFrequency,
   onDeleteFrequency,
   onCreateBank,
+  onUpdateBank,
   onDeleteBank,
   onExportJson,
   onTriggerScan,
@@ -61,22 +65,54 @@ export const MemoryBanksManager: React.FC<MemoryBanksManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [editingEntry, setEditingEntry] = useState<FrequencyEntry | null>(null);
   const [isCreatingNewEntry, setIsCreatingNewEntry] = useState<boolean>(false);
-  const [showNewBankModal, setShowNewBankModal] = useState<boolean>(false);
+  
+  // Bank Management Modal State (Add Memory Bank & Edit Each Bank)
+  const [showBankManagerModal, setShowBankManagerModal] = useState<boolean>(false);
+  const [editingBankId, setEditingBankId] = useState<string | null>(null);
+  const [bankEditName, setBankEditName] = useState<string>('');
+  const [bankEditShort, setBankEditShort] = useState<string>('');
+  const [bankEditRegion, setBankEditRegion] = useState<string>('');
+  const [bankEditDesc, setBankEditDesc] = useState<string>('');
 
-  // Sorting state
-  const [sortField, setSortField] = useState<SortField>('freq');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-
-  // New Bank Form State
+  // New Bank Form State inside Manager Modal
   const [newBankName, setNewBankName] = useState<string>('');
   const [newBankShort, setNewBankShort] = useState<string>('');
   const [newBankRegion, setNewBankRegion] = useState<string>('Queensland / SW Pacific');
   const [newBankDesc, setNewBankDesc] = useState<string>('');
 
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>('freq');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
   const activeBank = useMemo(
     () => banks.find((b) => b.id === activeBankId) || banks[0],
     [banks, activeBankId]
   );
+
+  const handleStartEditBank = (bank: MemoryBank) => {
+    setEditingBankId(bank.id);
+    setBankEditName(bank.name);
+    setBankEditShort(bank.shortLabel);
+    setBankEditRegion(bank.region);
+    setBankEditDesc(bank.description);
+  };
+
+  const handleSaveBankEdit = (bank: MemoryBank) => {
+    if (!bankEditName.trim()) return;
+    if (onUpdateBank) {
+      onUpdateBank({
+        ...bank,
+        name: bankEditName.trim(),
+        shortLabel:
+          bankEditShort.trim().toUpperCase() ||
+          bankEditName.trim().slice(0, 8).toUpperCase(),
+        region: bankEditRegion.trim() || bank.region,
+        description: bankEditDesc.trim() || bank.description,
+      });
+    }
+    setEditingBankId(null);
+    setShowBankManagerModal(false);
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -185,7 +221,7 @@ export const MemoryBanksManager: React.FC<MemoryBanksManagerProps> = ({
     setNewBankName('');
     setNewBankShort('');
     setNewBankDesc('');
-    setShowNewBankModal(false);
+    setShowBankManagerModal(false);
   };
 
   const getModeBadgeClass = (mode: RadioMode) => {
@@ -211,267 +247,434 @@ export const MemoryBanksManager: React.FC<MemoryBanksManagerProps> = ({
       aria-label="Queensland and South West Pacific Memory Banks"
       className="bg-[#12151c] border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col gap-4 shadow-xl"
     >
-      {/* HEADER BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-lg font-bold text-slate-100 tracking-tight flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-              <span>Memory Banks & Station Database</span>
-            </h2>
-            {activeBankId === 'scan-bank' && isScanning && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-500/50 animate-pulse flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>SCANNING ACTIVE</span>
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Pre-loaded with verified Queensland AM broadcasters, RFDS Outback emergency frequencies, Oceanic ATC, Marine Distress, and South West Pacific DX.
-          </p>
-        </div>
-
-        {/* Action Controls: ADD, EDIT, SCAN, STORE VFO, EXPORT */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {onTriggerScan && (
-            <button
-              type="button"
-              onClick={onTriggerScan}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow ${
-                isScanning
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-[0_0_10px_rgba(245,158,11,0.3)]'
-              }`}
-              title={`Scan channels in ${activeBank.name}`}
-            >
-              {isScanning ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              <span>{isScanning ? 'STOP SCAN' : `SCAN ${activeBank.shortLabel}`}</span>
-            </button>
-          )}
-
-          {/* Dedicated Prominent ADD / EDIT Button (Per user requirement) */}
-          <button
-            type="button"
-            onClick={() => {
-              const bankChannels = filteredAndSortedFrequencies;
-              if (bankChannels.length > 0) {
-                const tunedCh =
-                  bankChannels.find(
-                    (f) =>
-                      Math.abs(currentFreqHz - Math.round(f.freqKhz * 1000)) <= 50
-                  ) || bankChannels[0];
-                handleStartEditFrequency(tunedCh);
-              } else {
-                handleStartAddFrequency(false);
-              }
-            }}
-            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-[0_0_14px_rgba(6,182,212,0.45)]"
-            title="Add or Edit frequency channel in open memory bank"
-          >
-            <Edit3 className="w-4 h-4 stroke-[2.5]" />
-            <span>ADD / EDIT</span>
-          </button>
-
-          {/* Prominent + ADD CHANNEL Button */}
-          <button
-            type="button"
-            onClick={() => handleStartAddFrequency(false)}
-            className="px-3 py-1.5 rounded-lg bg-[#182635] hover:bg-[#203247] border border-cyan-500/60 text-cyan-300 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
-            title="Add a new frequency channel to this memory bank"
-          >
-            <Plus className="w-3.5 h-3.5 text-cyan-400 stroke-[3]" />
-            <span>+ ADD CHANNEL</span>
-          </button>
-
-          {/* STORE VFO Button */}
-          <button
-            type="button"
-            onClick={() => handleStartAddFrequency(true)}
-            className="px-3 py-1.5 rounded-lg bg-[#18202d] hover:bg-[#232c3e] border border-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Store current radio VFO frequency & mode directly into this bank"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Store VFO ({(currentFreqHz / 1000).toFixed(3)} kHz)</span>
-          </button>
-
-          {/* Export JSON Button */}
-          <button
-            type="button"
-            onClick={onExportJson}
-            className="px-2.5 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1f2535] border border-slate-800 text-slate-400 hover:text-slate-200 text-xs transition-colors flex items-center gap-1 cursor-pointer"
-            title="Export memory banks to JSON"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export JSON</span>
-          </button>
-        </div>
-      </div>
-
-      {/* MEMORY BANK SELECTOR TABS */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-800 scrollbar-thin">
-        {banks.map((bank) => {
-          const isSelected = bank.id === activeBankId;
-          const isScanBank = bank.id === 'scan-bank';
-          const count = frequencies.filter((f) => f.bankId === bank.id).length;
-          return (
-            <button
-              key={bank.id}
-              type="button"
-              onClick={() => onSelectBank(bank.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                isSelected
-                  ? isScanBank
-                    ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                    : 'bg-cyan-500 text-slate-950 shadow-[0_0_12px_rgba(6,182,212,0.4)]'
-                  : 'bg-[#181d26] text-slate-300 hover:bg-[#222936] hover:text-white border border-slate-800'
-              }`}
-            >
-              <span>{bank.shortLabel}</span>
-              <span
-                className={`px-1.5 py-0.2 rounded text-[10px] ${
-                  isSelected ? 'bg-black/25 text-black' : 'bg-black/40 text-slate-400'
+      {/* DOUBLE-ROW MEMORY BANK CONTROL CONSOLE */}
+      <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-[#141720] border border-slate-800 shadow-inner">
+        {/* ROW 1: MEMORY BANK BUTTONS (LIGHTER GREY & COMPACT TO COMFORTABLY FIT 11+ BANKS PER USER REQUEST) */}
+        {/* Centre aligned to neaten appearance per user request */}
+        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+          {banks.map((bank) => {
+            const isSelected = bank.id === activeBankId;
+            const isScanBank = bank.id === 'scan-bank';
+            const count = frequencies.filter((f) => f.bankId === bank.id).length;
+            return (
+              <button
+                key={bank.id}
+                type="button"
+                onClick={() => onSelectBank(bank.id)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 shadow-xs ${
+                  isSelected
+                    ? isScanBank
+                      ? 'bg-amber-400 text-slate-950 font-black shadow-[0_0_10px_rgba(251,191,36,0.45)] border border-amber-300'
+                      : 'bg-cyan-400 text-slate-950 font-black shadow-[0_0_10px_rgba(34,211,238,0.45)] border border-cyan-300'
+                    : 'bg-[#646e7f] hover:bg-[#788396] text-slate-50 hover:text-white border border-[#838f9f] shadow-inner'
                 }`}
+                title={`${bank.name} (${count} frequencies) — Click 'Add Memory Bank' to edit this bank`}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+                <span>{bank.shortLabel}</span>
+                <span
+                  className={`px-1 py-0.2 rounded text-[8.5px] ${
+                    isSelected ? 'bg-black/25 text-black font-black' : 'bg-black/40 text-slate-100 font-semibold'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
 
-        <button
-          type="button"
-          onClick={() => onSelectBank('ALL')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold whitespace-nowrap transition-all cursor-pointer ${
-            activeBankId === 'ALL'
-              ? 'bg-slate-200 text-slate-950 shadow'
-              : 'bg-[#181d26] text-slate-400 hover:text-white border border-slate-800'
-          }`}
-        >
-          ALL ({frequencies.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowNewBankModal(true)}
-          className="px-2.5 py-1.5 rounded-lg bg-[#181d26] hover:bg-[#222936] text-slate-400 hover:text-cyan-300 border border-dashed border-slate-700 text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap ml-auto"
-        >
-          <Plus className="w-3 h-3" />
-          <span>New Bank</span>
-        </button>
-      </div>
-
-      {/* BANK DESCRIPTION & SEARCH FILTER */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="text-slate-300 flex items-center gap-2 flex-wrap">
-          <strong className="text-white font-semibold">{activeBank.name}:</strong>
-          <span className="text-slate-400 text-[11px]">{activeBank.description}</span>
+          {/* ALL Banks Button */}
           <button
             type="button"
-            onClick={() => handleStartAddFrequency(false)}
-            className="px-2.5 py-0.5 rounded-md bg-cyan-950 hover:bg-cyan-900 text-cyan-300 hover:text-cyan-100 border border-cyan-500/40 text-[11px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
-            title={`Add a new channel to ${activeBank.name}`}
+            onClick={() => onSelectBank('ALL')}
+            className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold whitespace-nowrap transition-all cursor-pointer ${
+              activeBankId === 'ALL'
+                ? 'bg-slate-200 text-slate-950 shadow border border-white font-black'
+                : 'bg-[#646e7f] hover:bg-[#788396] text-slate-50 border border-[#838f9f]'
+            }`}
           >
-            <Plus className="w-3 h-3 text-cyan-400" />
-            <span>+ Add / Edit in {activeBank.shortLabel}</span>
+            ALL ({frequencies.length})
           </button>
         </div>
 
-        <div className="relative min-w-[220px]">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search frequency, station, callsign..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#0e1117] border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-          />
+        {/* ROW 2: ACTION BUTTONS (ADD MEMORY BANK, ADD FREQ, EDIT CHANNEL, SCAN BANK + SEARCH) */}
+        {/* Centre aligned to neaten appearance per user request */}
+        <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2 border-t border-slate-800/80">
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {/* 1. Edit Bank (Directly edits active memory bank) */}
+            <button
+              type="button"
+              onClick={() => {
+                handleStartEditBank(activeBank);
+                setShowBankManagerModal(true);
+              }}
+              className="px-3.5 py-1.5 rounded-lg bg-[#273244] hover:bg-[#33425b] text-cyan-200 hover:text-white border border-cyan-400/60 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title={`Edit active memory bank "${activeBank.name}" settings, name and description`}
+            >
+              <Edit3 className="w-3.5 h-3.5 text-cyan-400 stroke-[2.5]" />
+              <span>Edit Bank</span>
+            </button>
+
+            {/* 2. Add Memory Bank */}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingBankId(null);
+                setShowBankManagerModal(true);
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[#243042] hover:bg-[#303f56] text-cyan-300 hover:text-white border border-cyan-500/50 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Add a new custom memory bank"
+            >
+              <FolderPlus className="w-3.5 h-3.5 text-cyan-400 stroke-[2.5]" />
+              <span>Add Memory Bank</span>
+            </button>
+
+            {/* 2. Add Freq */}
+            <button
+              type="button"
+              onClick={() => handleStartAddFrequency(false)}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title={`Add a new frequency channel to ${activeBank.shortLabel}`}
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              <span>+ Add Freq</span>
+            </button>
+
+            {/* 3. Edit Channel */}
+            <button
+              type="button"
+              onClick={() => {
+                const bankChannels = filteredAndSortedFrequencies;
+                if (bankChannels.length > 0) {
+                  const tunedCh =
+                    bankChannels.find(
+                      (f) =>
+                        Math.abs(currentFreqHz - Math.round(f.freqKhz * 1000)) <= 50
+                    ) || bankChannels[0];
+                  handleStartEditFrequency(tunedCh);
+                } else {
+                  handleStartAddFrequency(false);
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg bg-[#272e3b] hover:bg-[#353e4f] text-slate-200 hover:text-white border border-slate-600 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Edit selected/tuned channel in this memory bank"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-slate-300 stroke-[2.5]" />
+              <span>Edit Channel</span>
+            </button>
+
+            {/* 4. Scan Bank */}
+            {onTriggerScan && (
+              <button
+                type="button"
+                onClick={onTriggerScan}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow ${
+                  isScanning
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                }`}
+                title={`Scan channels in ${activeBank.name}`}
+              >
+                {isScanning ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                <span>{isScanning ? 'STOP SCAN' : 'Scan Bank'}</span>
+              </button>
+            )}
+
+            {/* Store current VFO into active bank */}
+            <button
+              type="button"
+              onClick={() => handleStartAddFrequency(true)}
+              className="px-2.5 py-1.5 rounded-lg bg-[#18202d] hover:bg-[#232c3e] border border-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Store current radio VFO frequency & mode directly into this bank"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Store VFO ({(currentFreqHz / 1000).toFixed(3)} kHz)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search Input */}
+            <div className="relative min-w-[200px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search frequency, station..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#0e1117] border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            {/* Export JSON Button */}
+            <button
+              type="button"
+              onClick={onExportJson}
+              className="px-2.5 py-1.5 rounded-lg bg-[#141822] hover:bg-[#1f2535] border border-slate-800 text-slate-400 hover:text-slate-200 text-xs transition-colors flex items-center gap-1 cursor-pointer"
+              title="Export memory banks to JSON"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ADD NEW BANK MODAL / FORM */}
-      {showNewBankModal && (
-        <form
-          onSubmit={handleCommitNewBank}
-          className="p-4 rounded-xl bg-[#0b0e14] border border-cyan-500/40 flex flex-col gap-3 animate-in fade-in duration-150"
-        >
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-cyan-300">Create New Memory Bank</h3>
-            <button
-              type="button"
-              onClick={() => setShowNewBankModal(false)}
-              className="text-slate-400 hover:text-white cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      {/* ACTIVE BANK SUMMARY */}
+      <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <strong className="text-cyan-300 font-semibold">{activeBank.name}:</strong>
+          <span className="text-[11px] text-slate-300">{activeBank.description}</span>
+          <span className="text-slate-500">|</span>
+          <span className="text-amber-400 font-mono font-bold text-[11px]">
+            {filteredAndSortedFrequencies.length} Channels Available
+          </span>
+        </div>
+      </div>
+
+      {/* MEMORY BANK MANAGER MODAL: ADD NEW BANK & EDIT EACH MEMORY BANK */}
+      {showBankManagerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#0d1017] border border-cyan-500/60 rounded-2xl p-5 sm:p-6 flex flex-col gap-5 shadow-2xl animate-in zoom-in-95 duration-150 scrollbar-thin">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <FolderPlus className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Memory Bank Manager — Add &amp; Edit Banks
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBankManagerModal(false);
+                  setEditingBankId(null);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* SECTION 1: EDIT EXISTING MEMORY BANKS */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-mono font-bold tracking-wider text-cyan-300 uppercase">
+                  Existing Memory Banks ({banks.length}) — Click &ldquo;Edit&rdquo; to modify name / code
+                </h4>
+              </div>
+
+              <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                {banks.map((b) => {
+                  const isBeingEdited = editingBankId === b.id;
+                  const channelCount = frequencies.filter((f) => f.bankId === b.id).length;
+
+                  if (isBeingEdited) {
+                    return (
+                      <div
+                        key={b.id}
+                        className="p-3.5 rounded-xl bg-[#141a24] border border-cyan-500/60 flex flex-col gap-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-mono font-bold text-cyan-300">
+                            Editing Bank: {b.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400">
+                            {channelCount} channels
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                          <div>
+                            <label className="block text-[10px] font-mono text-slate-400 mb-1">
+                              Bank Full Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={bankEditName}
+                              onChange={(e) => setBankEditName(e.target.value)}
+                              className="w-full px-2.5 py-1.5 rounded bg-[#0b0e14] border border-slate-700 text-white text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono text-slate-400 mb-1">
+                              Tab Code (Max 8 chars)
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={8}
+                              value={bankEditShort}
+                              onChange={(e) => setBankEditShort(e.target.value)}
+                              className="w-full px-2.5 py-1.5 rounded bg-[#0b0e14] border border-slate-700 text-white text-xs font-mono uppercase"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-mono text-slate-400 mb-1">
+                              Region / Category
+                            </label>
+                            <input
+                              type="text"
+                              value={bankEditRegion}
+                              onChange={(e) => setBankEditRegion(e.target.value)}
+                              className="w-full px-2.5 py-1.5 rounded bg-[#0b0e14] border border-slate-700 text-white text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono text-slate-400 mb-1">
+                            Description
+                          </label>
+                          <input
+                            type="text"
+                            value={bankEditDesc}
+                            onChange={(e) => setBankEditDesc(e.target.value)}
+                            className="w-full px-2.5 py-1.5 rounded bg-[#0b0e14] border border-slate-700 text-white text-xs"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingBankId(null)}
+                            className="px-3 py-1 rounded bg-slate-800 text-slate-300 text-xs cursor-pointer hover:bg-slate-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveBankEdit(b)}
+                            className="px-3.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs cursor-pointer flex items-center gap-1 shadow"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Save Bank Changes</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={b.id}
+                      className="p-2.5 rounded-lg bg-[#11141c] border border-slate-800 hover:border-slate-700 flex items-center justify-between gap-3 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <span className="px-2 py-0.5 rounded bg-[#2a303d] border border-slate-600 text-cyan-300 font-mono text-[11px] font-bold shrink-0">
+                          {b.shortLabel}
+                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-bold text-slate-200 truncate">
+                            {b.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate">
+                            {b.region} &bull; {b.description}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {channelCount} ch
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditBank(b)}
+                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                          title={`Edit ${b.name}`}
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        {!b.isSystem && banks.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Delete memory bank "${b.name}" and all its frequencies?`)) {
+                                onDeleteBank(b.id);
+                              }
+                            }}
+                            className="p-1 rounded text-rose-400 hover:text-rose-200 hover:bg-rose-950/60 cursor-pointer transition-colors"
+                            title="Delete custom bank"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* SECTION 2: CREATE NEW MEMORY BANK FORM */}
+            <div className="pt-3 border-t border-white/10 flex flex-col gap-3">
+              <h4 className="text-xs font-mono font-bold tracking-wider text-emerald-400 uppercase flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>+ Create New Memory Bank</span>
+              </h4>
+
+              <form onSubmit={handleCommitNewBank} className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      Bank Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newBankName}
+                      onChange={(e) => setNewBankName(e.target.value)}
+                      placeholder="e.g. Queensland Ham Net"
+                      className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      Short Tab Code (Max 8 chars)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={8}
+                      value={newBankShort}
+                      onChange={(e) => setNewBankShort(e.target.value)}
+                      placeholder="e.g. QLD HAM"
+                      className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white font-mono uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      Region / Focus
+                    </label>
+                    <input
+                      type="text"
+                      value={newBankRegion}
+                      onChange={(e) => setNewBankRegion(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-mono text-slate-400 mb-1">
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={newBankDesc}
+                      onChange={(e) => setNewBankDesc(e.target.value)}
+                      placeholder="Notes on frequencies in this bank..."
+                      className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white cursor-pointer flex items-center gap-1.5 shadow"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Create Bank</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                Bank Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={newBankName}
-                onChange={(e) => setNewBankName(e.target.value)}
-                placeholder="e.g. Queensland Ham Net"
-                className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                Short Tab Code (Max 8 chars)
-              </label>
-              <input
-                type="text"
-                maxLength={8}
-                value={newBankShort}
-                onChange={(e) => setNewBankShort(e.target.value)}
-                placeholder="e.g. QLD HAM"
-                className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white font-mono uppercase"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                Region / Focus
-              </label>
-              <input
-                type="text"
-                value={newBankRegion}
-                onChange={(e) => setNewBankRegion(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-mono text-slate-400 mb-1">
-                Description
-              </label>
-              <input
-                type="text"
-                value={newBankDesc}
-                onChange={(e) => setNewBankDesc(e.target.value)}
-                placeholder="Notes on frequencies in this bank..."
-                className="w-full px-2.5 py-1.5 rounded bg-[#111621] border border-slate-700 text-xs text-white"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setShowNewBankModal(false)}
-              className="px-3 py-1.5 rounded bg-slate-800 text-xs text-slate-300 cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white cursor-pointer flex items-center gap-1"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Create Bank</span>
-            </button>
-          </div>
-        </form>
+        </div>
       )}
 
       {/* ADD / EDIT FREQUENCY MODAL PANEL (Opens whenever EDIT or ADD is clicked) */}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   FrequencyEntry,
   MemoryBank,
@@ -90,8 +90,42 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
   const [dialAngle, setDialAngle] = useState<number>(35);
   const [isDraggingDial, setIsDraggingDial] = useState<boolean>(false);
   const [keypadBuffer, setKeypadBuffer] = useState<string>('');
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [clockStr, setClockStr] = useState<string>('12:00:00');
   const [sMeterFlutter, setSMeterFlutter] = useState<number>(0);
+
+  // Synthesized mechanical click sound on button press
+  const playKeyClick = (freq = 1100) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.045);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.05);
+      }
+    } catch {
+      // AudioContext unavailable or suspended
+    }
+  };
+
+  // Live frequency preview of what the keypad buffer will tune to
+  const previewFreqHz = useMemo(() => {
+    if (!keypadBuffer) return null;
+    const val = parseFloat(keypadBuffer);
+    if (isNaN(val) || val <= 0) return null;
+    if (keypadBuffer.includes('.')) return Math.round(val * 1000000);
+    if (val <= 30) return Math.round(val * 1000000);
+    if (val <= 30000) return Math.round(val * 1000);
+    return Math.round(val);
+  }, [keypadBuffer]);
 
   // Fine tune step selection: 1 Hz or 10 Hz per user specification
   const [fineTuneStep, setFineTuneStep] = useState<1 | 10>(10);
@@ -254,16 +288,25 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
     }
   };
 
-  // Authentic Keypad Input Handler (0-9, ., CE, ENT, MHz, kHz)
+  // Authentic Keypad Input Handler (0-9, ., CE, ENT, MHz, kHz, BACK)
   const handleKeypadPress = (key: string) => {
-    if (!state.powerOn) return;
+    // If radio power is off, clicking any keypad key automatically powers it on
+    if (!state.powerOn) {
+      onUpdateState({ powerOn: true });
+    }
+
+    setActiveKey(key);
+    window.setTimeout(() => setActiveKey(null), 160);
+    playKeyClick(key === 'ENT' || key === 'MHz' || key === 'kHz' ? 1400 : 1050);
 
     if (key >= '0' && key <= '9') {
       if (keypadBuffer.length < 8) {
         setKeypadBuffer((prev) => prev + key);
       }
-    } else if (key === 'CE') {
+    } else if (key === 'CE' || key === 'CLEAR') {
       setKeypadBuffer('');
+    } else if (key === 'BACK' || key === 'BS') {
+      setKeypadBuffer((prev) => prev.slice(0, -1));
     } else if (key === '.') {
       if (!keypadBuffer.includes('.') && keypadBuffer.length < 8) {
         setKeypadBuffer((prev) => (prev ? prev + '.' : '0.'));
@@ -290,13 +333,52 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
       if (keypadBuffer.length > 0) {
         const val = parseFloat(keypadBuffer);
         if (!isNaN(val) && val > 0) {
-          const targetHz = val <= 30 ? Math.round(val * 1000000) : Math.round(val * 1000);
+          let targetHz = 0;
+          if (keypadBuffer.includes('.')) {
+            targetHz = Math.round(val * 1000000);
+          } else if (val <= 30) {
+            targetHz = Math.round(val * 1000000);
+          } else if (val <= 30000) {
+            targetHz = Math.round(val * 1000);
+          } else {
+            targetHz = Math.round(val);
+          }
           onDirectFrequencyHz(targetHz);
         }
         setKeypadBuffer('');
       }
     }
   };
+
+  // Keyboard support: Allow typing numbers on physical keyboard / numpad directly into FRG-8800
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      if (!state.powerOn) return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        handleKeypadPress(e.key);
+      } else if (e.key === '.') {
+        handleKeypadPress('.');
+      } else if (e.key === 'Backspace') {
+        handleKeypadPress('BACK');
+      } else if (e.key === 'Escape') {
+        handleKeypadPress('CE');
+      } else if (e.key === 'Enter') {
+        handleKeypadPress('ENT');
+      } else if (e.key.toLowerCase() === 'k') {
+        handleKeypadPress('kHz');
+      } else if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey) {
+        handleKeypadPress('MHz');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.powerOn, keypadBuffer]);
 
   const currentDisplaySelect = state.displaySelect || 'FREQ';
   const currentDisplayAngle =
@@ -521,15 +603,11 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-stretch">
           {/* ========================================================================================= */}
           {/* 1. LEFT COLUMN: EXPANDED ACOUSTIC SPEAKER GRILL & BOTTOM CONTROLS DECK                     */}
-          {/* Per user specification:                                                                   */}
-          {/* - Speaker Grill made larger, wider, and covers the now vacant space below it             */}
-          {/* - "Power" button moved down next to and on left side of "Phones" connector               */}
-          {/* - "Phones" connector in middle                                                            */}
-          {/* - To the right of Phones: "Tone", then "AF Gain" on other side, and dedicated "Squelch"   */}
+          {/* Made the exact same grey as the rest of the face panel per user requirement               */}
           {/* ========================================================================================= */}
-          <div className="lg:col-span-3 flex flex-col justify-between gap-4 bg-[#23272e] p-3.5 sm:p-4 rounded-2xl border border-[#373c46] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
-            {/* ENLARGED AUTHENTIC ACOUSTIC SPEAKER GRILL */}
-            <div className="flex-1 flex flex-col justify-between p-4 rounded-xl bg-[#0e1012] border border-black shadow-[inset_0_3px_10px_rgba(0,0,0,0.95)] min-h-[300px]">
+          <div className="lg:col-span-3 h-full flex flex-col justify-between gap-3.5 bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] p-3.5 sm:p-4 rounded-2xl border border-[#4d535f] shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]">
+            {/* ENLARGED AUTHENTIC ACOUSTIC SPEAKER GRILL (MATCHING FACE PANEL GREY) */}
+            <div className="flex-1 flex flex-col justify-between p-4 rounded-xl bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] border border-[#4d535f] shadow-[inset_0_2px_6px_rgba(0,0,0,0.35)] min-h-[300px]">
               {/* YAESU METAL BADGE & LEGEND */}
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <div className="flex items-center gap-2">
@@ -540,17 +618,17 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     FRG-8800
                   </span>
                 </div>
-                <span className="text-[10px] font-mono tracking-widest text-slate-400 uppercase">
+                <span className="text-[10px] font-mono tracking-widest text-slate-300 uppercase">
                   ACOUSTIC MONITOR
                 </span>
               </div>
 
-              {/* TALL & WIDE ACOUSTIC HORIZONTAL SLATS (Covers the now vacant space as requested) */}
+              {/* TALL & WIDE ACOUSTIC HORIZONTAL SLATS (EMBEDDED IN FACE PANEL GREY) */}
               <div className="flex-1 flex flex-col justify-evenly py-3 gap-1.5 sm:gap-2">
                 {Array.from({ length: 16 }).map((_, idx) => (
                   <div
                     key={idx}
-                    className="h-2.5 sm:h-3 rounded-full bg-gradient-to-r from-[#030405] via-[#0b0d10] to-[#030405] border-b border-white/10 shadow-[inset_0_2px_3px_rgba(0,0,0,0.95)] flex items-center px-3"
+                    className="h-2.5 sm:h-3 rounded-full bg-gradient-to-r from-[#202329] via-[#2a2e36] to-[#202329] border-t border-black/50 border-b border-white/10 shadow-[inset_0_2px_3px_rgba(0,0,0,0.8)] flex items-center px-3"
                   >
                     <div className="w-full h-0.5 bg-black/80 rounded-full" />
                   </div>
@@ -558,7 +636,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
               </div>
 
               {/* BOTTOM EMBOSSED BADGE */}
-              <div className="flex items-center justify-between pt-2.5 border-t border-white/10 text-[10px] font-mono tracking-widest text-slate-400">
+              <div className="flex items-center justify-between pt-2.5 border-t border-white/10 text-[10px] font-mono tracking-widest text-slate-300">
                 <span>SOLID STATE COMMUNICATIONS RECEIVER</span>
                 <span className="text-[#d5ba7d] font-bold">150 kHz - 30 MHz</span>
               </div>
@@ -566,12 +644,9 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
 
             {/* ===================================================================================== */}
             {/* BOTTOM CONTROLS DECK: POWER -> PHONES -> TONE -> AF GAIN -> SQUELCH                   */}
-            {/* Per user specification:                                                               */}
-            {/* - "Power" button is moved down next to and on left side of "Phones" connector         */}
-            {/* - "Phones" connector in middle                                                        */}
-            {/* - Dedicated "Tone", "AF Gain" on other side of Tone, and dedicated "Squelch" dial     */}
+            {/* Matching Face Panel Grey Subpanel                                                     */}
             {/* ===================================================================================== */}
-            <div className="p-3 bg-[#111316] rounded-xl border border-black shadow-[inset_0_2px_6px_rgba(0,0,0,0.85)] flex flex-wrap items-center justify-between gap-3">
+            <div className="p-3 bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] rounded-xl border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-wrap items-center justify-between gap-3">
               {/* 1. POWER BUTTON: Placed to the left of the PHONES connector */}
               <div className="flex flex-col items-center">
                 <button
@@ -806,19 +881,30 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
 
                 {/* Main Digital LCD Readout */}
                 <div className="my-2.5 flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="flex items-baseline gap-1 font-mono tracking-tighter">
+                  <div className="flex items-baseline gap-2 font-mono tracking-tighter">
                     {keypadBuffer ? (
-                      <div
-                        className="text-4xl sm:text-5xl lg:text-6xl font-black tabular-nums animate-pulse"
-                        style={{
-                          color: state.lcdTextColor || '#000000',
-                          textShadow:
-                            state.lcdTextColor && state.lcdTextColor !== '#000000'
-                              ? `0 0 16px ${state.lcdTextColor}`
-                              : '0 1px 0 rgba(255,255,255,0.25)',
-                        }}
-                      >
-                        {keypadBuffer}_
+                      <div className="flex flex-wrap items-baseline gap-3">
+                        <div
+                          className="text-4xl sm:text-5xl lg:text-6xl font-black tabular-nums animate-pulse"
+                          style={{
+                            color: state.lcdTextColor || '#000000',
+                            textShadow:
+                              state.lcdTextColor && state.lcdTextColor !== '#000000'
+                                ? `0 0 16px ${state.lcdTextColor}`
+                                : '0 1px 0 rgba(255,255,255,0.25)',
+                          }}
+                        >
+                          {keypadBuffer}_
+                        </div>
+                        {previewFreqHz && (
+                          <div
+                            className="text-xs sm:text-sm font-extrabold uppercase px-2 py-0.5 rounded bg-black/30 border border-black/40 flex items-baseline gap-1"
+                            style={{ color: state.lcdTextColor || '#000000' }}
+                          >
+                            <span className="opacity-70 text-[10px]">TUNE &gt;</span>
+                            <span>{(previewFreqHz / 1000).toFixed(3)} kHz</span>
+                          </div>
+                        )}
                       </div>
                     ) : state.displaySelect === 'SLEEP' ? (
                       <div
@@ -1018,8 +1104,22 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 })}
               </div>
 
-              {/* LOCK Button */}
-              <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+              {/* VFO / MEM Button & LOCK Button */}
+              <div className="flex items-center gap-1.5 pl-2 border-l border-white/10">
+                <button
+                  type="button"
+                  onClick={onToggleVfoMem}
+                  className={`py-1.5 px-2.5 rounded-md text-[11px] font-mono font-black border border-[#70664d] cursor-pointer flex items-center gap-1 shadow transition-all ${
+                    state.vfoMode === 'MEM'
+                      ? 'bg-gradient-to-b from-[#baaE87] to-[#9e926e] text-teal-950 border-[#554d37] shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)] ring-1 ring-teal-400'
+                      : 'bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512]'
+                  }`}
+                  title="VFO / MEM: Toggle VFO & Memory Channels in active bank"
+                >
+                  <Radio className="w-3 h-3 text-[#141512]" />
+                  <span>VFO/MEM</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => onUpdateState({ dialLocked: !state.dialLocked })}
@@ -1429,118 +1529,88 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
           </div>
 
           {/* ========================================================================= */}
-          {/* 3. RIGHT COLUMN: DISPLAY SELECT, TIMER/SET, KEYPAD, MEM/SCAN, M CH & ATT  */}
-          {/* Authentic Yaesu FRG-8800 Right Deck as specified by user                  */}
+          {/* 3. RIGHT COLUMN: AUTHENTIC YAESU FRG-8800 CONTROLS (MATCHES IMAGE 1 PHOTO) */}
+          {/* Top: Timer/Set buttons (Left) + Display Select Rotary Switch (Right)       */}
+          {/* Middle: Numeric Keypad (Left, 7 8 9 / 4 5 6 / 1 2 3 / 0 MHz kHz)           */}
+          {/*         + Memory & Scan Buttons (Right, Charcoal Grey with White Labels)    */}
+          {/* Bottom: M CH Switch (Left, 1-6 & 7-12) + ATT Switch (Right, OFF/MIN to DX) */}
           {/* ========================================================================= */}
-          <div className="lg:col-span-4 flex flex-col justify-between gap-3 bg-[#23272e] p-3.5 sm:p-4 rounded-2xl border border-[#373c46] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6)]">
-            {/* TOP DECK: DISPLAY SELECT ROTARY DIAL & TIMER/SET CONTROLS */}
-            <div className="p-2.5 rounded-xl bg-[#171a1f] border border-black/80 shadow-inner flex flex-wrap items-center justify-between gap-3">
-              {/* 1. DISPLAY SELECT ROTARY DIAL */}
-              <div
-                className="flex flex-col items-center select-none"
-                title="DISPLAY SELECT: Sleep (7 o'clock), Off, On, Clock 1, Freq, Clock 2 (1 o'clock)"
-              >
-                <div className="relative w-32 h-24 flex items-center justify-center">
-                  {/* Radial Labels around the 7 o'clock to 1 o'clock arc */}
-                  {DISPLAY_SELECT_OPTIONS.map((opt) => {
-                    const rad = ((opt.angle - 90) * Math.PI) / 180;
-                    const r = 38;
-                    const x = 64 + r * Math.cos(rad);
-                    const y = 50 + r * Math.sin(rad);
-                    const active = (state.displaySelect || 'FREQ') === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleSelectDisplayMode(opt.id)}
-                        style={{
-                          left: `${x}px`,
-                          top: `${y}px`,
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                        className={`absolute text-[8px] font-mono font-bold tracking-tight cursor-pointer whitespace-nowrap transition-all ${
-                          active
-                            ? 'text-amber-300 font-black scale-110 drop-shadow-[0_0_4px_#f59e0b]'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-
-                  {/* Center Rotary Knob */}
-                  <div
-                    onWheel={(e) => {
-                      e.preventDefault();
-                      const curIdx = DISPLAY_SELECT_OPTIONS.findIndex(
-                        (o) => o.id === (state.displaySelect || 'FREQ')
-                      );
-                      const nextIdx = Math.max(
-                        0,
-                        Math.min(
-                          DISPLAY_SELECT_OPTIONS.length - 1,
-                          curIdx + (e.deltaY < 0 ? 1 : -1)
-                        )
-                      );
-                      handleSelectDisplayMode(DISPLAY_SELECT_OPTIONS[nextIdx].id);
-                    }}
-                    className="relative w-10 h-10 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow-lg flex items-center justify-center cursor-pointer group"
-                    title="Display Select Dial: Turn wheel or click labels"
-                  >
-                    <div
-                      className="w-6 h-6 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner transition-transform duration-150"
-                      style={{
-                        transform: `rotate(${currentDisplayAngle}deg)`,
-                      }}
-                    >
-                      <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2.5 bg-amber-400 rounded-full shadow-[0_0_4px_#fbbf24]" />
+          <div className="lg:col-span-4 h-full flex flex-col gap-3.5 bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] p-3.5 sm:p-4 rounded-2xl border border-[#4d535f] shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]">
+            {/* --------------------------------------------------------------------- */}
+            {/* TOP DECK: TIMER / SET CONTROLS (LEFT) + DISPLAY SELECT ROTARY (RIGHT) */}
+            {/* Matching Face Panel Grey Subpanel                                     */}
+            {/* --------------------------------------------------------------------- */}
+            <div className="p-2.5 sm:p-3 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-center justify-between gap-2 select-none w-full flex-shrink-0">
+              {/* LEFT HALF: 2x2 TIMER & SET BUTTONS */}
+              <div className="flex-1 flex flex-col justify-between pr-2 border-r border-[#4d535f]/70">
+                {/* 1. TIMER Section */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5 w-full">
+                    <div className="h-[1px] bg-slate-400/60 flex-1" />
+                    <span className="text-[9px] font-mono font-bold tracking-widest text-slate-200 uppercase">
+                      TIMER
+                    </span>
+                    <div className="h-[1px] bg-slate-400/60 flex-1" />
+                  </div>
+                  {/* Sublabels: ON (boxed) & CLEAR */}
+                  <div className="grid grid-cols-2 gap-2 text-center items-end py-0.5">
+                    <div className="flex justify-center">
+                      <span className="border border-slate-300/80 px-1 py-0.2 rounded-xs text-[8px] font-mono font-bold text-slate-200">
+                        ON
+                      </span>
+                    </div>
+                    <div className="flex justify-center">
+                      <span className="text-[8px] font-mono font-bold text-slate-200">
+                        CLEAR
+                      </span>
                     </div>
                   </div>
-                </div>
-                <span className="text-[9px] font-mono font-bold tracking-wider text-slate-300 uppercase -mt-0.5">
-                  DISPLAY SELECT
-                </span>
-              </div>
-
-              {/* 2. TIMER & SET CONTROLS */}
-              <div className="flex flex-col gap-2 flex-1 min-w-[130px]">
-                {/* Timer Section */}
-                <div className="flex flex-col gap-1">
-                  <div className="text-[9px] font-mono font-black tracking-widest text-[#d5ba7d] uppercase">
-                    TIMER
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  {/* Buttons Row 1 */}
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() =>
                         onUpdateState({ clockMode: 'TIMER', displaySelect: 'SLEEP' })
                       }
-                      className="py-1 px-1.5 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[10px] font-black border border-[#70664d] shadow active:translate-y-0.5 cursor-pointer"
-                      title="Turn Timer ON"
-                    >
-                      On
-                    </button>
+                      className="h-6 sm:h-6.5 w-full rounded-sm bg-gradient-to-b from-[#dfd7bd] via-[#d2c8aa] to-[#baae8d] hover:from-[#e8e0c8] border border-[#766c54] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
+                      title="Timer ON"
+                    />
                     <button
                       type="button"
                       onClick={() => {
                         startTimestampRef.current = Date.now();
                         onUpdateState({ clockMode: 'AEST', displaySelect: 'FREQ' });
                       }}
-                      className="py-1 px-1.5 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[10px] font-black border border-[#70664d] shadow active:translate-y-0.5 cursor-pointer"
+                      className="h-6 sm:h-6.5 w-full rounded-sm bg-gradient-to-b from-[#dfd7bd] via-[#d2c8aa] to-[#baae8d] hover:from-[#e8e0c8] border border-[#766c54] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
                       title="Clear Timer"
-                    >
-                      Clear
-                    </button>
+                    />
                   </div>
                 </div>
 
-                {/* SET Section */}
-                <div className="flex flex-col gap-1">
-                  <div className="text-[9px] font-mono font-black tracking-widest text-[#d5ba7d] uppercase">
-                    SET
+                {/* 2. SET Section */}
+                <div className="flex flex-col gap-0.5 mt-2">
+                  <div className="flex items-center gap-1.5 w-full">
+                    <div className="h-[1px] bg-slate-400/60 flex-1" />
+                    <span className="text-[9px] font-mono font-bold tracking-widest text-slate-200 uppercase">
+                      SET
+                    </span>
+                    <div className="h-[1px] bg-slate-400/60 flex-1" />
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5">
+                  {/* Sublabels: HOUR & TIME */}
+                  <div className="grid grid-cols-2 gap-2 text-center items-end py-0.5">
+                    <div className="flex justify-center">
+                      <span className="text-[8px] font-mono font-bold text-slate-200">
+                        HOUR
+                      </span>
+                    </div>
+                    <div className="flex justify-center">
+                      <span className="text-[8px] font-mono font-bold text-slate-200">
+                        TIME
+                      </span>
+                    </div>
+                  </div>
+                  {/* Buttons Row 2 */}
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() =>
@@ -1548,11 +1618,9 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                           clockMode: state.clockMode === 'UTC' ? 'AEST' : 'UTC',
                         })
                       }
-                      className="py-1 px-1.5 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[10px] font-black border border-[#70664d] shadow active:translate-y-0.5 cursor-pointer"
-                      title="Advance / Toggle Hour"
-                    >
-                      Hour
-                    </button>
+                      className="h-6 sm:h-6.5 w-full rounded-sm bg-gradient-to-b from-[#dfd7bd] via-[#d2c8aa] to-[#baae8d] hover:from-[#e8e0c8] border border-[#766c54] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
+                      title="Advance Hour"
+                    />
                     <button
                       type="button"
                       onClick={() =>
@@ -1560,253 +1628,572 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                           clockMode: state.clockMode === 'AEST' ? 'UTC' : 'AEST',
                         })
                       }
-                      className="py-1 px-1.5 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[10px] font-black border border-[#70664d] shadow active:translate-y-0.5 cursor-pointer"
+                      className="h-6 sm:h-6.5 w-full rounded-sm bg-gradient-to-b from-[#dfd7bd] via-[#d2c8aa] to-[#baae8d] hover:from-[#e8e0c8] border border-[#766c54] shadow-[0_2px_3px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
                       title="Toggle Time (UTC / AEST)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT HALF: DISPLAY SELECT ROTARY SWITCH (POINTER KNOB WITH AUTHENTIC SILKSCREEN) */}
+              <div
+                className="w-[140px] sm:w-[155px] h-[115px] relative flex items-center justify-center select-none"
+                title="DISPLAY SELECT: Click label or scroll wheel to rotate switch"
+              >
+                {/* Dial Center is at (70, 58) */}
+                {/* 1. FREQ (Top 12 o'clock) */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDisplayMode('FREQ')}
+                  className={`absolute top-0.5 left-1/2 -translate-x-1/2 text-[8px] font-mono font-bold tracking-wider cursor-pointer transition-colors ${
+                    currentDisplaySelect === 'FREQ'
+                      ? 'text-amber-300 font-black drop-shadow-[0_0_4px_#f59e0b]'
+                      : 'text-slate-200 hover:text-white'
+                  }`}
+                >
+                  FREQ
+                </button>
+                {/* Tick under FREQ */}
+                <span className="absolute top-4 left-1/2 -translate-x-1/2 w-[1px] h-2 bg-slate-300/80" />
+
+                {/* 2. CLOCK 1 (~10:45) */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDisplayMode('CLOCK1')}
+                  className={`absolute top-2 left-2 text-[8px] font-mono font-bold tracking-wider cursor-pointer transition-colors ${
+                    currentDisplaySelect === 'CLOCK1'
+                      ? 'text-amber-300 font-black drop-shadow-[0_0_4px_#f59e0b]'
+                      : 'text-slate-200 hover:text-white'
+                  }`}
+                >
+                  CLOCK 1
+                </button>
+                {/* Radial Tick CLOCK 1 */}
+                <span
+                  className="absolute top-7 left-12 w-[1px] h-2.5 bg-slate-300/80 origin-bottom"
+                  style={{ transform: 'rotate(-45deg)' }}
+                />
+
+                {/* 3. CLOCK 2 (~1:45) */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDisplayMode('CLOCK2')}
+                  className={`absolute top-2 right-2 text-[8px] font-mono font-bold tracking-wider cursor-pointer transition-colors ${
+                    currentDisplaySelect === 'CLOCK2'
+                      ? 'text-amber-300 font-black drop-shadow-[0_0_4px_#f59e0b]'
+                      : 'text-slate-200 hover:text-white'
+                  }`}
+                >
+                  CLOCK 2
+                </button>
+                {/* Radial Tick CLOCK 2 */}
+                <span
+                  className="absolute top-7 right-12 w-[1px] h-2.5 bg-slate-300/80 origin-bottom"
+                  style={{ transform: 'rotate(45deg)' }}
+                />
+
+                {/* 4. ON (Boxed, ~9:45) */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDisplayMode('ON')}
+                  className={`absolute top-10 left-3 border px-1 py-0.2 rounded-xs text-[7.5px] font-mono font-bold cursor-pointer transition-colors ${
+                    currentDisplaySelect === 'ON'
+                      ? 'text-amber-300 border-amber-400 font-black drop-shadow-[0_0_4px_#f59e0b]'
+                      : 'text-slate-200 border-slate-300/80 hover:text-white'
+                  }`}
+                >
+                  ON
+                </button>
+                {/* Radial Tick ON */}
+                <span
+                  className="absolute top-12 left-10 w-2.5 h-[1px] bg-slate-300/80"
+                  style={{ transform: 'rotate(-15deg)' }}
+                />
+
+                {/* 5. OFF (Boxed, ~8:15) */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDisplayMode('OFF')}
+                  className={`absolute top-17 left-2 border px-1 py-0.2 rounded-xs text-[7.5px] font-mono font-bold cursor-pointer transition-colors ${
+                    currentDisplaySelect === 'OFF'
+                      ? 'text-amber-300 border-amber-400 font-black drop-shadow-[0_0_4px_#f59e0b]'
+                      : 'text-slate-200 border-slate-300/80 hover:text-white'
+                  }`}
+                >
+                  OFF
+                </button>
+                {/* Radial Tick OFF */}
+                <span
+                  className="absolute top-19 left-11 w-2.5 h-[1px] bg-slate-300/80"
+                  style={{ transform: 'rotate(20deg)' }}
+                />
+
+                {/* 6. SLEEP (~7 o'clock) */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectDisplayMode('SLEEP')}
+                  className={`absolute bottom-0 left-2 text-[8px] font-mono font-bold tracking-wider cursor-pointer transition-colors ${
+                    currentDisplaySelect === 'SLEEP'
+                      ? 'text-amber-300 font-black drop-shadow-[0_0_4px_#f59e0b]'
+                      : 'text-slate-200 hover:text-white'
+                  }`}
+                >
+                  SLEEP
+                </button>
+                {/* Radial Tick SLEEP */}
+                <span
+                  className="absolute bottom-4 left-14 w-[1px] h-2.5 bg-slate-300/80 origin-top"
+                  style={{ transform: 'rotate(35deg)' }}
+                />
+
+                {/* CENTER KNOB: Pointer Knob with Silver Beveled Skirt */}
+                <div
+                  onWheel={(e) => {
+                    e.preventDefault();
+                    const curIdx = DISPLAY_SELECT_OPTIONS.findIndex(
+                      (o) => o.id === currentDisplaySelect
+                    );
+                    const nextIdx = Math.max(
+                      0,
+                      Math.min(
+                        DISPLAY_SELECT_OPTIONS.length - 1,
+                        curIdx + (e.deltaY < 0 ? 1 : -1)
+                      )
+                    );
+                    handleSelectDisplayMode(DISPLAY_SELECT_OPTIONS[nextIdx].id);
+                  }}
+                  className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center cursor-pointer mt-3"
+                  title="DISPLAY SELECT Switch: Scroll wheel or click surrounding labels"
+                >
+                  {/* Concentric silver inner ring */}
+                  <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-b from-[#8f96a3] to-[#454a54] border border-white/20 shadow-inner flex items-center justify-center">
+                    {/* Rotating Pointer Head */}
+                    <div
+                      className="w-7 h-7 relative flex items-center justify-center transition-transform duration-150"
+                      style={{
+                        transform: `rotate(${currentDisplayAngle}deg)`,
+                      }}
                     >
-                      Time
-                    </button>
+                      {/* Teardrop Pointer Body */}
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3.5 h-6 bg-gradient-to-b from-[#1b1c20] to-[#0d0e10] rounded-t-full rounded-b-md shadow-md border border-black/80 flex items-start justify-center pt-0.5">
+                        {/* White indicator line on pointer */}
+                        <span className="w-0.5 h-3.5 bg-white rounded-full shadow-[0_0_2px_#ffffff]" />
+                      </div>
+                      {/* Center Hub */}
+                      <div className="w-4 h-4 rounded-full bg-gradient-to-b from-[#2a2d33] to-[#121316] border border-black relative z-10" />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* MIDDLE DECK: NUMERIC KEYPAD (LEFT) + SCAN / MEMORY BUTTONS (RIGHT) */}
-            <div className="p-2.5 rounded-xl bg-[#171a1f] border border-black/80 shadow-inner flex flex-col gap-2">
-              <div className="flex items-center justify-between text-[9px] font-mono tracking-widest text-slate-400 uppercase px-1">
-                <span className="font-bold text-slate-300">NUMERIC KEYPAD</span>
-                <span className="text-[#d5ba7d] font-bold">MEMORY &amp; SCAN</span>
-              </div>
+            {/* --------------------------------------------------------------------- */}
+            {/* MIDDLE DECK: NUMERIC KEYPAD (LEFT) + MEMORY & SCAN BUTTONS (RIGHT)     */}
+            {/* Keypad: 4 Rows x 3 Cols (7 8 9 / 4 5 6 / 1 2 3 / 0 MHz kHz)          */}
+            {/* Memory: 2 Cols x 4 Rows + Wide VFO (Dark Grey with White Labels Above) */}
+            {/* Matching Face Panel Grey Subpanel - Expanded to close vertical gap    */}
+            {/* --------------------------------------------------------------------- */}
+            <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-stretch justify-between gap-3 select-none flex-1 min-h-[380px]">
+              {/* LEFT HALF: 3-COL NUMERIC KEYPAD */}
+              <div className="flex-1 flex flex-col justify-between pr-2.5 border-r border-[#4d535f]/70">
+                {/* Buffer status banner if user is actively entering a frequency */}
+                {keypadBuffer ? (
+                  <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-amber-950/90 border border-amber-500/70 flex flex-wrap items-center justify-between gap-1 text-xs font-mono font-bold animate-in fade-in duration-100 shadow-md">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-amber-400 text-[10px] uppercase tracking-wider font-extrabold">ENTRY:</span>
+                      <span className="text-white text-base font-black tracking-widest">{keypadBuffer}_</span>
+                      {previewFreqHz && (
+                        <span className="text-cyan-300 text-[11px] font-bold">
+                          &rarr; {(previewFreqHz / 1000).toFixed(3)} kHz
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleKeypadPress('ENT')}
+                        className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-black cursor-pointer shadow-xs"
+                        title="Tune directly to this frequency"
+                      >
+                        ENT
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleKeypadPress('kHz')}
+                        className="px-1.5 py-0.5 rounded bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[10px] font-black cursor-pointer shadow-xs"
+                        title="Commit in kHz (e.g. 7100 -> 7100 kHz)"
+                      >
+                        kHz
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleKeypadPress('MHz')}
+                        className="px-1.5 py-0.5 rounded bg-orange-600 hover:bg-orange-500 active:scale-95 text-white text-[10px] font-black cursor-pointer shadow-xs"
+                        title="Commit in MHz (e.g. 7.1 -> 7.1 MHz)"
+                      >
+                        MHz
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleKeypadPress('CE')}
+                        className="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-900 active:scale-95 text-rose-200 border border-rose-500/50 text-[10px] font-bold cursor-pointer"
+                        title="Clear Entry"
+                      >
+                        CE
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
 
-              {/* 5-Column Split: 3 Columns for Numeric Keypad, 2 Columns for Memory/Scan */}
-              <div className="grid grid-cols-5 gap-2 items-start">
-                {/* 3 COLS: NUMERIC KEYPAD (Small compact darker cream buttons) */}
-                <div className="col-span-3 grid grid-cols-3 gap-1.5">
-                  {/* Row 1: 1, 2, 3 */}
-                  {['1', '2', '3'].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => handleKeypadPress(n)}
-                      className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-xs font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    >
-                      {n}
-                    </button>
-                  ))}
-
-                  {/* Row 2: 4, 5, 6 */}
-                  {['4', '5', '6'].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => handleKeypadPress(n)}
-                      className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-xs font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    >
-                      {n}
-                    </button>
-                  ))}
-
-                  {/* Row 3: 7, 8, 9 */}
-                  {['7', '8', '9'].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => handleKeypadPress(n)}
-                      className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-xs font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    >
-                      {n}
-                    </button>
-                  ))}
-
-                  {/* Row 4: CE, 0, ENT */}
-                  <button
-                    type="button"
-                    onClick={() => handleKeypadPress('CE')}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-rose-900 font-mono text-[11px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    title="Clear Entry"
-                  >
-                    CE
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleKeypadPress('0')}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-xs font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleKeypadPress('ENT')}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[11px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    title="Enter / Commit"
-                  >
-                    ENT
-                  </button>
-
-                  {/* Row 5: MHz, kHz, . */}
-                  <button
-                    type="button"
-                    onClick={() => handleKeypadPress('MHz')}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-orange-950 font-mono text-[10px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    title="Commit as MHz (e.g. 14 -> 14.000 MHz)"
-                  >
-                    MHz
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleKeypadPress('kHz')}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-sky-950 font-mono text-[10px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    title="Commit as kHz (e.g. 612 -> 612.000 kHz)"
-                  >
-                    kHz
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleKeypadPress('.')}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-xs font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 active:shadow-inner"
-                    title="Decimal Point"
-                  >
-                    .
-                  </button>
+                {/* Row 1: 7, 8, 9 */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    {['7', '8', '9'].map((n) => (
+                      <span key={`lbl-${n}`} className="text-[8px] font-mono font-bold text-slate-300">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {['7', '8', '9'].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => handleKeypadPress(n)}
+                        className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                          activeKey === n ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* 2 COLS: MEMORY / SCAN BUTTONS (Exactly as per original radio panel) */}
-                <div className="col-span-2 grid grid-cols-2 gap-1.5">
-                  {/* Row 1: "M Select" " > VFO " */}
-                  <button
-                    type="button"
-                    onClick={() => onStepMemoryChannel(1)}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap"
-                    title="M Select (Advance / Select Memory Channel)"
-                  >
-                    M Select
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleMemToVfo}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap"
-                    title="> VFO (Transfer current Memory Channel to VFO)"
-                  >
-                    &gt; VFO
-                  </button>
+                {/* Row 2: 4, 5, 6 */}
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    {['4', '5', '6'].map((n) => (
+                      <span key={`lbl-${n}`} className="text-[8px] font-mono font-bold text-slate-300">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {['4', '5', '6'].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => handleKeypadPress(n)}
+                        className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                          activeKey === n ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                  {/* Row 2: "P Scan" "Pause" */}
-                  <button
-                    type="button"
-                    onClick={onTriggerScan}
-                    className={`py-1.5 px-1 rounded-md font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap ${
-                      isScanning
-                        ? 'bg-amber-400 text-slate-950 font-black animate-pulse'
-                        : 'bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512]'
-                    }`}
-                    title="P Scan (Programmed / Memory Bank Scan)"
-                  >
-                    P Scan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isScanning) onTriggerScan();
-                    }}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap"
-                    title="Pause Scan"
-                  >
-                    Pause
-                  </button>
+                {/* Row 3: 1, 2, 3 */}
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    {['1', '2', '3'].map((n) => (
+                      <span key={`lbl-${n}`} className="text-[8px] font-mono font-bold text-slate-300">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {['1', '2', '3'].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => handleKeypadPress(n)}
+                        className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                          activeKey === n ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                  {/* Row 3: "M Scan" "S Scan" */}
-                  <button
-                    type="button"
-                    onClick={onTriggerScan}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap"
-                    title="M Scan (Memory Scan)"
-                  >
-                    M Scan
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onTriggerScan}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap"
-                    title="S Scan (Search Scan)"
-                  >
-                    S Scan
-                  </button>
+                {/* Row 4: 0, MHz (Orange), kHz (Blue) */}
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    <span className="text-[8px] font-mono font-bold text-slate-300">0</span>
+                    <span className="text-[8px] font-mono font-bold text-orange-400">MHz</span>
+                    <span className="text-[8px] font-mono font-bold text-blue-400">kHz</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {/* 0 (Beige) */}
+                    <button
+                      type="button"
+                      onClick={() => handleKeypadPress('0')}
+                      className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                        activeKey === '0' ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
+                      }`}
+                    >
+                      0
+                    </button>
+                    {/* MHz (Vibrant Amber Orange) */}
+                    <button
+                      type="button"
+                      onClick={() => handleKeypadPress('MHz')}
+                      className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#f97316] via-[#ea580c] to-[#c2410c] hover:from-[#fb923c] border border-[#9a3412] text-white font-black font-mono text-xs shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                        activeKey === 'MHz' ? 'ring-2 ring-white brightness-125 translate-y-0.5 shadow-inner' : ''
+                      }`}
+                      title="Commit entry in MHz (e.g. 14 -> 14.000 MHz)"
+                    >
+                      MHz
+                    </button>
+                    {/* kHz (Vibrant Cobalt Blue) */}
+                    <button
+                      type="button"
+                      onClick={() => handleKeypadPress('kHz')}
+                      className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#3b82f6] via-[#2563eb] to-[#1d4ed8] hover:from-[#60a5fa] border border-[#1e40af] text-white font-black font-mono text-xs shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                        activeKey === 'kHz' ? 'ring-2 ring-white brightness-125 translate-y-0.5 shadow-inner' : ''
+                      }`}
+                      title="Commit entry in kHz (e.g. 612 -> 612.000 kHz)"
+                    >
+                      kHz
+                    </button>
+                  </div>
+                </div>
 
-                  {/* Row 4: "MR" "VFO > M" */}
-                  <button
-                    type="button"
-                    onClick={onToggleVfoMem}
-                    className={`py-1.5 px-1 rounded-md font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap ${
-                      state.vfoMode === 'MEM'
-                        ? 'bg-gradient-to-b from-[#baaE87] to-[#9e926e] text-teal-900 border-[#554d37] shadow-inner font-black'
-                        : 'bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512]'
-                    }`}
-                    title="MR (Memory Recall)"
-                  >
-                    MR
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleVfoToMem}
-                    className="py-1.5 px-1 rounded-md bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512] font-mono text-[9px] font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center leading-tight whitespace-nowrap"
-                    title="VFO > M (Store active VFO frequency into current Memory Channel / Bank)"
-                  >
-                    VFO &gt; M
-                  </button>
+                {/* Row 5: Quick Utility Keys [. Dot, CE Clear, ENT Enter] */}
+                <div className="flex flex-col gap-0.5 mt-1.5 pt-1 border-t border-[#4d535f]/70">
+                  <div className="grid grid-cols-3 gap-1.5 text-center">
+                    <span className="text-[7.5px] font-mono font-bold text-cyan-400">DOT</span>
+                    <span className="text-[7.5px] font-mono font-bold text-amber-400">CLEAR</span>
+                    <span className="text-[7.5px] font-mono font-bold text-emerald-400">ENTER</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleKeypadPress('.')}
+                      className={`h-6 sm:h-6.5 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-cyan-300 font-black font-mono text-xs cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
+                        activeKey === '.' ? 'ring-2 ring-cyan-400 brightness-125 translate-y-0.5' : ''
+                      }`}
+                      title="Decimal Point (e.g. 7.1 MHz)"
+                    >
+                      .
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleKeypadPress('CE')}
+                      className={`h-6 sm:h-6.5 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-amber-300 font-black font-mono text-[10px] cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
+                        activeKey === 'CE' ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5' : ''
+                      }`}
+                      title="Clear Entry (Backspace/Reset)"
+                    >
+                      CE
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleKeypadPress('ENT')}
+                      className={`h-6 sm:h-6.5 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-emerald-300 font-black font-mono text-[10px] cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
+                        activeKey === 'ENT' ? 'ring-2 ring-emerald-400 brightness-125 translate-y-0.5' : ''
+                      }`}
+                      title="Direct Enter (Auto-tune entry)"
+                    >
+                      ENT
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-                  {/* Row 5: "VFO" - exactly the width of the 2 columns of buttons above it */}
+              {/* RIGHT HALF: 2-COL MEMORY & SCAN BUTTONS + WIDE VFO */}
+              {/* Dark Charcoal Grey buttons with White Silkscreen Labels Above */}
+              <div className="w-[140px] sm:w-[155px] flex flex-col justify-between">
+                {/* Row 1: M SELECT & M > VFO */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      M SELECT
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      M &gt; VFO
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onStepMemoryChannel(1)}
+                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      title="M Select (Advance Memory Channel)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleMemToVfo}
+                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      title="M > VFO (Transfer Memory Channel to VFO)"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 2: P SCAN & PAUSE */}
+                <div className="flex flex-col gap-0.5 mt-1.5">
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      P SCAN
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      PAUSE
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={onTriggerScan}
+                      className={`h-6 sm:h-6.5 rounded-sm border shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5 ${
+                        isScanning
+                          ? 'bg-amber-500 animate-pulse border-amber-400'
+                          : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#484f5c]'
+                      }`}
+                      title="P Scan (Programmed Scan)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isScanning) onTriggerScan();
+                      }}
+                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      title="Pause Scan"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 3: M SCAN & S SCAN */}
+                <div className="flex flex-col gap-0.5 mt-1.5">
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      M SCAN
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      S SCAN
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={onTriggerScan}
+                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      title="M Scan (Memory Scan)"
+                    />
+                    <button
+                      type="button"
+                      onClick={onTriggerScan}
+                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      title="S Scan (Search Scan)"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 4: MR & VFO > M */}
+                <div className="flex flex-col gap-0.5 mt-1.5">
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      MR
+                    </span>
+                    <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
+                      VFO &gt; M
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={onToggleVfoMem}
+                      className={`h-6 sm:h-6.5 rounded-sm border shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5 ${
+                        state.vfoMode === 'MEM'
+                          ? 'bg-gradient-to-b from-[#1b434a] to-[#0f2a2e] border-teal-400 ring-1 ring-cyan-400/50'
+                          : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#484f5c]'
+                      }`}
+                      title="MR (Memory Recall / Step)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVfoToMem}
+                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      title="VFO > M (Store VFO to Memory)"
+                    />
+                  </div>
+                </div>
+
+                {/* Row 5: Full Width VFO Button */}
+                <div className="flex flex-col gap-0.5 mt-1.5">
+                  <div className="text-center">
+                    <span className="text-[8px] font-mono font-bold text-slate-200">
+                      VFO
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => onUpdateState({ vfoMode: 'VFO' })}
-                    className={`col-span-2 py-1.5 px-2 rounded-md font-mono text-xs font-black border border-[#70664d] shadow-[0_2px_3px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 text-center tracking-wider transition-all ${
+                    className={`w-full h-6 sm:h-6.5 rounded-sm border shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5 ${
                       state.vfoMode === 'VFO'
-                        ? 'bg-gradient-to-b from-[#baaE87] to-[#9e926e] text-[#141512] border-[#554d37] shadow-inner font-black'
-                        : 'bg-gradient-to-b from-[#d5caa8] via-[#c7bc96] to-[#b3a77f] hover:from-[#ded4b2] text-[#141512]'
+                        ? 'bg-gradient-to-b from-[#4d535f] to-[#343841] border-cyan-400/70 ring-1 ring-cyan-400/50'
+                        : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#484f5c]'
                     }`}
-                    title="VFO (Return to VFO Mode)"
-                  >
-                    VFO
-                  </button>
+                    title="VFO Mode"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* BOTTOM DECK: M CH DIAL (LEFT) + ATT DIAL (RIGHT) */}
-            <div className="p-2.5 rounded-xl bg-[#171a1f] border border-black/80 shadow-inner grid grid-cols-2 gap-3 items-center">
-              {/* 1. "M Ch" DIAL WITH NUMBERED MEMORIES (1..12, linked to actual memory banks) */}
+            {/* --------------------------------------------------------------------- */}
+            {/* BOTTOM DECK: M CH (LEFT, 1-6 & 7-12) + ATT (RIGHT, MIN/OFF TO DX)      */}
+            {/* Placed at the very bottom of the main panel frame (same as power deck) */}
+            {/* Matching Face Panel Grey Subpanel                                     */}
+            {/* --------------------------------------------------------------------- */}
+            <div className="p-3 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-center justify-between gap-3 select-none mt-auto flex-shrink-0 w-full">
+              {/* 1. M CH ROTARY SWITCH (Header: ─── M CH ───, Left: 1..6, Right: 7..12) */}
               <div
-                className="flex flex-col items-center select-none"
+                className="flex-1 flex flex-col items-center select-none"
                 title="M CH: Select Memory Channel 1-12 (opens and tunes to linked memory bank)"
               >
-                <div className="relative w-28 h-24 flex items-center justify-center">
-                  {M_CHANNELS.map((ch) => {
-                    const angle = ((ch - 1) / 11) * 270 - 135;
-                    const rad = ((angle - 90) * Math.PI) / 180;
-                    const r = 38;
-                    const x = 56 + r * Math.cos(rad);
-                    const y = 48 + r * Math.sin(rad);
-                    const active = state.memoryChannel === ch;
-                    return (
-                      <button
-                        key={ch}
-                        type="button"
-                        onClick={() => handleSelectMCh(ch)}
-                        style={{
-                          left: `${x}px`,
-                          top: `${y}px`,
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                        className={`absolute text-[9px] font-mono font-bold cursor-pointer transition-all ${
-                          active
-                            ? 'text-amber-300 font-black scale-125 drop-shadow-[0_0_4px_#f59e0b]'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {ch}
-                      </button>
-                    );
-                  })}
+                {/* Header Line ─── M CH ─── */}
+                <div className="flex items-center gap-1.5 w-full mb-1">
+                  <div className="h-[1px] bg-slate-400/60 flex-1" />
+                  <span className="text-[9px] font-mono font-bold tracking-widest text-slate-200 uppercase">
+                    M CH
+                  </span>
+                  <div className="h-[1px] bg-slate-400/60 flex-1" />
+                </div>
 
-                  {/* Center Rotary Knob */}
+                <div className="relative w-full h-[85px] flex items-center justify-between px-2">
+                  {/* Left Column: Channels 6, 5, 4, 3, 2, 1 with horizontal tick marks */}
+                  <div className="flex flex-col justify-between h-full py-0.5">
+                    {[6, 5, 4, 3, 2, 1].map((ch) => {
+                      const active = state.memoryChannel === ch;
+                      return (
+                        <div
+                          key={ch}
+                          onClick={() => handleSelectMCh(ch)}
+                          className="flex items-center gap-1 cursor-pointer group"
+                        >
+                          <span
+                            className={`text-[8px] font-mono font-bold transition-colors w-3 text-right ${
+                              active
+                                ? 'text-amber-300 font-black drop-shadow-[0_0_3px_#f59e0b]'
+                                : 'text-slate-300 group-hover:text-white'
+                            }`}
+                          >
+                            {ch}
+                          </span>
+                          <span
+                            className={`w-3.5 h-[1px] transition-colors ${
+                              active ? 'bg-amber-400' : 'bg-slate-400/60 group-hover:bg-slate-200'
+                            }`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Center Rotary Knob (Silver Skirt with Pointer Knob) */}
                   <div
                     onWheel={(e) => {
                       e.preventDefault();
@@ -1817,61 +2204,138 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                       );
                       handleSelectMCh(nextCh);
                     }}
-                    className="relative w-10 h-10 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow-lg flex items-center justify-center cursor-pointer group"
-                    title="M CH Dial: Scroll wheel or click number (opens linked bank)"
+                    className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center cursor-pointer"
+                    title="M CH Dial: Scroll wheel or click number to select channel"
                   >
-                    <div
-                      className="w-6 h-6 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner transition-transform duration-150"
-                      style={{
-                        transform: `rotate(${((state.memoryChannel - 1) / 11) * 270 - 135}deg)`,
-                      }}
-                    >
-                      <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2.5 bg-amber-400 rounded-full shadow-[0_0_4px_#fbbf24]" />
+                    <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-b from-[#8f96a3] to-[#454a54] border border-white/20 shadow-inner flex items-center justify-center">
+                      <div
+                        className="w-7 h-7 relative flex items-center justify-center transition-transform duration-150"
+                        style={{
+                          // Map channels 1-6 to left ticks (-140° to -220°), channels 7-12 to right ticks (40° to -40°)
+                          transform: `rotate(${
+                            state.memoryChannel <= 6
+                              ? 220 - (state.memoryChannel - 1) * 16
+                              : 40 - (state.memoryChannel - 7) * 16
+                          }deg)`,
+                        }}
+                      >
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3.5 h-6 bg-gradient-to-b from-[#1b1c20] to-[#0d0e10] rounded-t-full rounded-b-md shadow-md border border-black/80 flex items-start justify-center pt-0.5">
+                          <span className="w-0.5 h-3.5 bg-white rounded-full shadow-[0_0_2px_#ffffff]" />
+                        </div>
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-b from-[#2a2d33] to-[#121316] border border-black relative z-10" />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Right Column: Channels 7, 8, 9, 10, 11, 12 with horizontal tick marks */}
+                  <div className="flex flex-col justify-between h-full py-0.5">
+                    {[7, 8, 9, 10, 11, 12].map((ch) => {
+                      const active = state.memoryChannel === ch;
+                      return (
+                        <div
+                          key={ch}
+                          onClick={() => handleSelectMCh(ch)}
+                          className="flex items-center gap-1 cursor-pointer group"
+                        >
+                          <span
+                            className={`w-3.5 h-[1px] transition-colors ${
+                              active ? 'bg-amber-400' : 'bg-slate-400/60 group-hover:bg-slate-200'
+                            }`}
+                          />
+                          <span
+                            className={`text-[8px] font-mono font-bold transition-colors w-3.5 text-left ${
+                              active
+                                ? 'text-amber-300 font-black drop-shadow-[0_0_3px_#f59e0b]'
+                                : 'text-slate-300 group-hover:text-white'
+                            }`}
+                          >
+                            {ch}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="text-[9px] font-mono font-bold tracking-wider text-slate-300 uppercase -mt-0.5">
-                  M CH
-                </span>
-                <span className="text-[8px] font-mono text-amber-300/80 tabular-nums">
-                  CH {state.memoryChannel}
-                </span>
               </div>
 
-              {/* 2. "ATT" (ATTENUATOR) DIAL (DX, 10dB, 20dB, LOCAL) */}
+              {/* 2. ATT (ATTENUATOR) ROTARY SWITCH (Header: ATT, Left: MIN & OFF, Right: DX) */}
               <div
-                className="flex flex-col items-center select-none"
-                title="ATT: Attenuator Dial (DX 0dB, 10dB, 20dB, LOCAL 30dB)"
+                className="w-[140px] sm:w-[155px] flex flex-col items-center select-none pl-2 border-l border-[#4d535f]/70"
+                title="ATT: Attenuator Switch (OFF/MIN to DX)"
               >
-                <div className="relative w-28 h-24 flex items-center justify-center">
-                  {ATT_OPTIONS.map((opt) => {
-                    const rad = ((opt.angle - 90) * Math.PI) / 180;
-                    const r = 38;
-                    const x = 56 + r * Math.cos(rad);
-                    const y = 48 + r * Math.sin(rad);
-                    const active = state.attenuator === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleSelectAtt(opt.id)}
-                        style={{
-                          left: `${x}px`,
-                          top: `${y}px`,
-                          transform: 'translate(-50%, -50%)',
-                        }}
-                        className={`absolute text-[8px] font-mono font-bold cursor-pointer whitespace-nowrap transition-all ${
-                          active
-                            ? 'text-cyan-300 font-black scale-125 drop-shadow-[0_0_4px_#22d3ee]'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+                {/* Header ATT */}
+                <div className="flex items-center gap-1.5 w-full mb-1">
+                  <div className="h-[1px] bg-slate-400/60 flex-1" />
+                  <span className="text-[9px] font-mono font-bold tracking-widest text-slate-200 uppercase">
+                    ATT
+                  </span>
+                  <div className="h-[1px] bg-slate-400/60 flex-1" />
+                </div>
 
-                  {/* Center Rotary Knob */}
+                <div className="relative w-full h-[85px] flex items-center justify-center">
+                  {/* Top Tick mark (12 o'clock) */}
+                  <span className="absolute top-1 left-1/2 -translate-x-1/2 w-[1px] h-2 bg-slate-300/80" />
+
+                  {/* Left: MIN & Boxed OFF */}
+                  <div
+                    onClick={() => handleSelectAtt('LOCAL')}
+                    className="absolute bottom-1 left-1 flex flex-col items-center cursor-pointer group"
+                  >
+                    <span className="text-[7px] font-mono font-bold text-slate-300 group-hover:text-white">
+                      MIN
+                    </span>
+                    <span
+                      className={`border px-1 py-0.2 rounded-xs text-[7px] font-mono font-bold ${
+                        state.attenuator === 'LOCAL'
+                          ? 'text-cyan-300 border-cyan-400 font-black'
+                          : 'text-slate-200 border-slate-300/80 group-hover:text-white'
+                      }`}
+                    >
+                      OFF
+                    </span>
+                  </div>
+
+                  {/* Intermediate Ticks: 10 dB and 20 dB */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectAtt('20dB')}
+                    className={`absolute top-2 left-4 text-[7px] font-mono font-bold cursor-pointer ${
+                      state.attenuator === '20dB'
+                        ? 'text-cyan-300 font-black'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    20 dB
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectAtt('10dB')}
+                    className={`absolute top-2 right-4 text-[7px] font-mono font-bold cursor-pointer ${
+                      state.attenuator === '10dB'
+                        ? 'text-cyan-300 font-black'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    10 dB
+                  </button>
+
+                  {/* Right: DX */}
+                  <div
+                    onClick={() => handleSelectAtt('DX')}
+                    className="absolute bottom-1 right-2 flex flex-col items-center cursor-pointer group"
+                  >
+                    <span
+                      className={`text-[8px] font-mono font-bold ${
+                        state.attenuator === 'DX'
+                          ? 'text-cyan-300 font-black drop-shadow-[0_0_3px_#22d3ee]'
+                          : 'text-slate-200 group-hover:text-white'
+                      }`}
+                    >
+                      DX
+                    </span>
+                  </div>
+
+                  {/* Center Knob: Fluted Cylindrical Knob with Silver Skirt */}
                   <div
                     onWheel={(e) => {
                       e.preventDefault();
@@ -1887,25 +2351,29 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                       );
                       handleSelectAtt(ATT_OPTIONS[nextIdx].id);
                     }}
-                    className="relative w-10 h-10 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow-lg flex items-center justify-center cursor-pointer group"
-                    title="ATT Dial: Scroll wheel or click level"
+                    className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center cursor-pointer"
+                    title="ATT Switch: Scroll wheel or click surrounding levels"
                   >
+                    {/* Fluted cylindrical knob head */}
                     <div
-                      className="w-6 h-6 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner transition-transform duration-150"
+                      className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#141517] border border-white/20 relative shadow-inner flex items-center justify-center transition-transform duration-150"
                       style={{
-                        transform: `rotate(${ATT_OPTIONS.find((o) => o.id === state.attenuator)?.angle ?? -135}deg)`,
+                        transform: `rotate(${
+                          state.attenuator === 'LOCAL'
+                            ? -135
+                            : state.attenuator === '20dB'
+                            ? -45
+                            : state.attenuator === '10dB'
+                            ? 45
+                            : 135
+                        }deg)`,
                       }}
                     >
-                      <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_4px_#22d3ee]" />
+                      {/* Indicator dot and groove */}
+                      <span className="absolute top-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-white shadow-[0_0_2px_#ffffff]" />
                     </div>
                   </div>
                 </div>
-                <span className="text-[9px] font-mono font-bold tracking-wider text-slate-300 uppercase -mt-0.5">
-                  ATT
-                </span>
-                <span className="text-[8px] font-mono text-cyan-300/80 tabular-nums">
-                  {ATT_OPTIONS.find((o) => o.id === state.attenuator)?.db ?? '0 dB'}
-                </span>
               </div>
             </div>
           </div>

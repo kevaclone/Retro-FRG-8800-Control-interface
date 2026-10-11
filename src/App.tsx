@@ -3,6 +3,7 @@ import {
   CatPacketLog,
   FrequencyEntry,
   MemoryBank,
+  RadioMode,
   RadioState,
 } from './types/radio';
 import {
@@ -23,10 +24,11 @@ import { HelpManualModal } from './components/HelpManualModal';
 import { YaesuFRG8800Panel } from './components/YaesuFRG8800Panel';
 import { MemoryBanksManager } from './components/MemoryBanksManager';
 import { CppVisualStudioBuilder } from './components/CppVisualStudioBuilder';
-import { Terminal, Trash2, Eye, Download, Code2, Layers } from 'lucide-react';
+import { MinimizedFreqWindow } from './components/MinimizedFreqWindow';
+import { Terminal, Trash2, Eye, Download, Code2, Layers, Minimize2, Maximize2, Radio } from 'lucide-react';
 
-const STORAGE_KEY_BANKS = 'yaesu_frg8800_win11_banks';
-const STORAGE_KEY_FREQS = 'yaesu_frg8800_win11_freqs';
+const STORAGE_KEY_BANKS = 'yaesu_frg8800_win11_banks_v5';
+const STORAGE_KEY_FREQS = 'yaesu_frg8800_win11_freqs_v5';
 
 export function App() {
   const [banks, setBanks] = useState<MemoryBank[]>(() => {
@@ -34,7 +36,13 @@ export function App() {
       const saved = localStorage.getItem(STORAGE_KEY_BANKS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (
+          Array.isArray(parsed) &&
+          parsed.some((b: MemoryBank) => b.id === 'ems-law') &&
+          parsed.some((b: MemoryBank) => b.id === 'digital-modes')
+        ) {
+          return parsed;
+        }
       }
     } catch {
       // fallback
@@ -47,7 +55,13 @@ export function App() {
       const saved = localStorage.getItem(STORAGE_KEY_FREQS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (
+          Array.isArray(parsed) &&
+          parsed.some((f: FrequencyEntry) => f.bankId === 'ems-law') &&
+          parsed.some((f: FrequencyEntry) => f.bankId === 'digital-modes')
+        ) {
+          return parsed;
+        }
       }
     } catch {
       // fallback
@@ -74,6 +88,19 @@ export function App() {
   const [showCppBuilder, setShowCppBuilder] = useState<boolean>(false);
   const [showOptionsModal, setShowOptionsModal] = useState<boolean>(false);
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
+
+  // Global Ctrl+M keyboard shortcut for Minimize/Restore
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setIsMinimized((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Auto-Scan Priority Bank state
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -299,8 +326,11 @@ export function App() {
     [dispatchCatPacket, serialStatus.connected, handleStopScan]
   );
 
+  const lastVfoFreqRef = useRef<number>(radioState.freqHz);
+  const lastVfoModeRef = useRef<RadioMode>(radioState.mode);
+
   const handleTuneMemoryEntry = useCallback(
-    (entry: FrequencyEntry) => {
+    (entry: FrequencyEntry, channelIdx?: number) => {
       const targetHz = Math.round(entry.freqKhz * 1000);
       const freqPkt = encodeBcdFrequencyPacket(targetHz);
       const modePkt = encodeModePacket(entry.mode);
@@ -326,6 +356,8 @@ export function App() {
         powerOn: true,
         freqHz: targetHz,
         mode: entry.mode,
+        vfoMode: 'MEM',
+        ...(channelIdx !== undefined ? { memoryChannel: channelIdx } : {}),
       }));
     },
     [dispatchCatPacket, serialStatus.connected]
@@ -342,12 +374,7 @@ export function App() {
       const nextChannelIdx =
         (radioState.memoryChannel + delta + bankList.length) % bankList.length;
       const target = bankList[nextChannelIdx];
-      setRadioState((prev) => ({
-        ...prev,
-        vfoMode: 'MEM',
-        memoryChannel: nextChannelIdx,
-      }));
-      handleTuneMemoryEntry(target);
+      handleTuneMemoryEntry(target, nextChannelIdx);
     },
     [frequencies, activeBankId, radioState.memoryChannel, handleTuneMemoryEntry]
   );
@@ -395,19 +422,44 @@ export function App() {
 
   const handleToggleVfoMem = useCallback(() => {
     setShowMemoryBanks(true);
-    setRadioState((prev) => {
-      const bankList = frequencies
-        .filter((f) => activeBankId === 'ALL' || f.bankId === activeBankId)
-        .sort((a, b) => a.freqKhz - b.freqKhz);
-      if (bankList.length === 0) return { ...prev, vfoMode: 'MEM' };
+    const bankList = frequencies
+      .filter((f) => activeBankId === 'ALL' || f.bankId === activeBankId)
+      .sort((a, b) => a.freqKhz - b.freqKhz);
 
-      // Step to next channel in open bank when toggled
-      const nextIdx = (prev.memoryChannel + 1) % bankList.length;
-      const ch = bankList[nextIdx];
-      handleTuneMemoryEntry(ch);
-      return { ...prev, vfoMode: 'MEM', memoryChannel: nextIdx };
-    });
-  }, [frequencies, activeBankId, handleTuneMemoryEntry]);
+    if (bankList.length === 0) {
+      setRadioState((prev) => ({
+        ...prev,
+        vfoMode: prev.vfoMode === 'VFO' ? 'MEM' : 'VFO',
+      }));
+      return;
+    }
+
+    if (radioState.vfoMode === 'VFO') {
+      lastVfoFreqRef.current = radioState.freqHz;
+      lastVfoModeRef.current = radioState.mode;
+
+      const targetIdx = Math.min(bankList.length - 1, Math.max(0, (radioState.memoryChannel || 1) - 1));
+      const target = bankList[targetIdx];
+      handleTuneMemoryEntry(target, targetIdx + 1);
+
+      setMrToast({
+        message: `VFO/MEM: Recalled [${target.callsign}] ${target.freqKhz.toFixed(3)} kHz (${target.mode})`,
+        channelId: target.id,
+      });
+      setTimeout(() => setMrToast(null), 3500);
+    } else {
+      // Step to next channel in open bank when toggled in MEM mode
+      const nextIdx = radioState.memoryChannel % bankList.length;
+      const target = bankList[nextIdx];
+      handleTuneMemoryEntry(target, nextIdx + 1);
+
+      setMrToast({
+        message: `VFO/MEM: Stepped to [${target.callsign}] ${target.freqKhz.toFixed(3)} kHz (${target.mode})`,
+        channelId: target.id,
+      });
+      setTimeout(() => setMrToast(null), 3500);
+    }
+  }, [frequencies, activeBankId, radioState.vfoMode, radioState.freqHz, radioState.mode, radioState.memoryChannel, handleTuneMemoryEntry]);
 
   const handleTriggerScan = useCallback(() => {
     if (isScanning) {
@@ -461,6 +513,10 @@ export function App() {
   const handleCreateBank = (newBank: MemoryBank) => {
     setBanks((prev) => [...prev, newBank]);
     setActiveBankId(newBank.id);
+  };
+
+  const handleUpdateBank = (updatedBank: MemoryBank) => {
+    setBanks((prev) => prev.map((b) => (b.id === updatedBank.id ? updatedBank : b)));
   };
 
   const handleDeleteBank = (bankId: string) => {
@@ -524,11 +580,28 @@ export function App() {
         onToggleDtr={handleToggleDtr}
         rtsEnabled={rtsEnabled}
         onToggleRts={handleToggleRts}
+        isMinimized={isMinimized}
+        onToggleMinimize={() => setIsMinimized((prev) => !prev)}
       />
 
       {/* QUICK VIEW SHORTCUT STRIP */}
       <div className="bg-[#14171d] border-b border-[#29303c] px-4 py-1.5 flex items-center justify-between text-xs text-slate-300">
         <div className="flex items-center gap-3">
+          {/* Mini Window Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsMinimized((p) => !p)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium cursor-pointer transition-colors ${
+              isMinimized
+                ? 'bg-cyan-500 text-slate-950 font-bold shadow-xs'
+                : 'hover:bg-white/5 text-slate-300 hover:text-white'
+            }`}
+            title="Minimize to Minimal Frequency Window ('FRG-8800 Freq' Stay on Top - Ctrl+M)"
+          >
+            {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5 text-cyan-400" />}
+            <span>{isMinimized ? 'Restore Panel' : 'Mini Window (FRG-8800 Freq)'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowMemoryBanks((p) => !p)}
@@ -581,36 +654,104 @@ export function App() {
         </div>
       </div>
 
+      {/* FLOATING MINIMIZED FREQUENCY WINDOW ("FRG-8800 Freq" Stay on Top) */}
+      {isMinimized && (
+        <MinimizedFreqWindow
+          state={radioState}
+          matchedStation={matchedStation}
+          serialConnected={serialStatus.connected}
+          onRestore={() => setIsMinimized(false)}
+          onUpdateState={handleUpdateRadioState}
+          onStepFrequency={handleStepFrequency}
+          onToggleVfoMem={handleToggleVfoMem}
+        />
+      )}
+
       {/* WORKSPACE MAIN CONTENT - Widened for full hardware front panel reproduction */}
-      <main className="flex-1 max-w-[1560px] w-full mx-auto px-2 sm:px-4 py-4 flex flex-col gap-6">
-        {/* 2. AUTHENTIC FRONT PANEL REPLICA (Cleaned up, no COM buttons) */}
-        <div id="receiver">
-          <YaesuFRG8800Panel
-            state={radioState}
-            matchedStation={matchedStation}
-            lastCatHex={lastCatHex}
-            serialConnected={serialStatus.connected}
-            isScanning={isScanning}
-            availableBanks={banks}
-            frequencies={frequencies}
-            activeBankId={activeBankId}
-            onSelectBank={(bId) => {
-              setActiveBankId(bId);
-              setShowMemoryBanks(true);
-            }}
-            onUpdateState={handleUpdateRadioState}
-            onStepFrequency={handleStepFrequency}
-            onDirectFrequencyHz={handleDirectFrequencyHz}
-            onStepMemoryChannel={handleStepMemoryChannel}
-            onAddFreqToOpenBank={handleAddFreqToOpenBank}
-            onToggleVfoMem={handleToggleVfoMem}
-            onTriggerScan={handleTriggerScan}
-          />
-        </div>
+      <main className="flex-1 max-w-[1560px] w-full mx-auto px-2 sm:px-4 py-5 flex flex-col gap-8">
+        {isMinimized ? (
+          /* MINIMIZED MODE WORKSPACE PLACEHOLDER */
+          <div className="flex-1 flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="max-w-lg w-full bg-[#131720] border border-[#2d3545] rounded-2xl p-7 shadow-2xl flex flex-col items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-950/80 border border-cyan-500/40 flex items-center justify-center shadow-inner">
+                <Radio className="w-7 h-7 text-cyan-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold font-mono text-white tracking-wide">
+                  Yaesu FRG-8800 Communications Receiver
+                </h2>
+                <p className="text-xs text-slate-400 mt-1.5 font-sans leading-relaxed">
+                  The receiver has been minimized to a compact floating frequency window with <span className="text-cyan-300 font-mono font-bold">"FRG-8800 Freq"</span> label, staying on top of all windows.
+                </p>
+              </div>
+
+              {/* Current Status Pill */}
+              <div className="w-full bg-[#0b0e14] border border-slate-800 rounded-xl p-3.5 flex items-center justify-between font-mono text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-slate-400">Current Tuned:</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-extrabold text-cyan-300 text-base">
+                    {(radioState.freqHz / 1000).toFixed(3)} kHz
+                  </span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-black/40 text-amber-300 font-bold">
+                    {radioState.mode}
+                  </span>
+                </div>
+              </div>
+
+              {matchedStation && (
+                <div className="text-xs text-slate-300 font-mono truncate max-w-full bg-[#1a202c]/50 px-3 py-1.5 rounded-lg border border-slate-800">
+                  <span className="text-cyan-400 font-bold">{matchedStation.callsign}</span> · {matchedStation.stationName} ({matchedStation.location})
+                </div>
+              )}
+
+              {/* Restore Button */}
+              <button
+                type="button"
+                onClick={() => setIsMinimized(false)}
+                className="w-full py-3 px-5 bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-black rounded-xl text-sm transition-all shadow-[0_0_20px_rgba(34,211,238,0.35)] flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Maximize2 className="w-4 h-4 stroke-[2.5]" />
+                <span>Restore Full FRG-8800 Front Panel</span>
+              </button>
+
+              <span className="text-[11px] text-slate-500 font-mono">
+                Shortcut: Press <kbd className="px-1.5 py-0.5 bg-black/40 rounded border border-slate-700 text-slate-300">Ctrl+M</kbd> or click <strong>Restore</strong> on the mini window
+              </span>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* 2. AUTHENTIC FRONT PANEL REPLICA (Cleaned up, no COM buttons) */}
+            <div id="receiver" className="w-full relative">
+              <YaesuFRG8800Panel
+                state={radioState}
+                matchedStation={matchedStation}
+                lastCatHex={lastCatHex}
+                serialConnected={serialStatus.connected}
+                isScanning={isScanning}
+                availableBanks={banks}
+                frequencies={frequencies}
+                activeBankId={activeBankId}
+                onSelectBank={(bId) => {
+                  setActiveBankId(bId);
+                  setShowMemoryBanks(true);
+                }}
+                onUpdateState={handleUpdateRadioState}
+                onStepFrequency={handleStepFrequency}
+                onDirectFrequencyHz={handleDirectFrequencyHz}
+                onStepMemoryChannel={handleStepMemoryChannel}
+                onAddFreqToOpenBank={handleAddFreqToOpenBank}
+                onToggleVfoMem={handleToggleVfoMem}
+                onTriggerScan={handleTriggerScan}
+              />
+            </div>
 
         {/* 3. OPTIONAL DOCKED WINDOW: MEMORY BANKS & FREQUENCY DATABASE */}
         {showMemoryBanks && (
-          <div id="memory-banks" className="transition-all animate-in fade-in duration-200 flex flex-col gap-2">
+          <div id="memory-banks" className="transition-all animate-in fade-in duration-200 flex flex-col gap-3 pt-4 border-t border-slate-800/80">
             {mrToast && (
               <div className="bg-emerald-950/90 border border-emerald-500/70 text-emerald-200 px-4 py-2.5 rounded-xl shadow-lg flex items-center justify-between text-xs font-mono font-bold animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="flex items-center gap-2">
@@ -630,7 +771,7 @@ export function App() {
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-slate-200">
-                  Queensland MW & South West Pacific Memory Banks
+                  Queensland, Australian &amp; Pacific Memory Banks
                 </span>
                 <span className="text-xs text-slate-400">
                   (MR adds freqs to open bank · SCAN scans open bank · VFO/M steps memories)
@@ -657,6 +798,7 @@ export function App() {
               onSaveFrequency={handleSaveFrequency}
               onDeleteFrequency={handleDeleteFrequency}
               onCreateBank={handleCreateBank}
+              onUpdateBank={handleUpdateBank}
               onDeleteBank={handleDeleteBank}
               onExportJson={handleExportJson}
               onTriggerScan={handleTriggerScan}
@@ -732,6 +874,8 @@ export function App() {
               onClearCatLogs={() => setCatLogs([])}
             />
           </div>
+        )}
+          </>
         )}
       </main>
 

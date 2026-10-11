@@ -25,7 +25,7 @@ export interface MemoryBank {
   shortLabel: string;
   region: string;
   description: string;
-  category: 'MW_QLD' | 'RFDS' | 'ATC' | 'MARINE' | 'UTILITY' | 'SW_BC' | 'LW_NDB' | 'CUSTOM';
+  category: 'MW_QLD' | 'RFDS' | 'ATC' | 'MARINE' | 'MIL' | 'UTILITY' | 'SW_BC' | 'LW_NDB' | 'HAM' | 'EMS' | 'DIGITAL' | 'CUSTOM';
   isSystem?: boolean;
 }
 

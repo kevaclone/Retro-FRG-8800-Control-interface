@@ -605,21 +605,18 @@ This is a complete, native Windows 11 C++20 desktop application built specifical
   - Set Mode: \`[00, 00, 00, ModeCode, 80]\`
 
 ## Front Panel Layout
-- **Chassis:** Authentic dark gunmetal/charcoal matte finish.
+- **Chassis:** Authentic Yaesu Satin Lighter Grey Anodized finish.
 - **Speaker:** Acoustic horizontal louvers on the upper-left with silver Yaesu logo badge.
-- **VFD Display:** Vacuum Fluorescent Display with fluorescent S-meter, digital frequency readout in MHz/kHz/100Hz, mode indicators, dual 24h clocks (QLD AEST / UTC / Timer), and live CAT stream telemetry.
-- **Rotary Dials & Controls:** Dual concentric AF/RF Gain, Tone/Squelch, Attenuator (DX, NORM, LOCAL), Noise Blanker (NB), AGC Fast/Slow, Power switch, Dimmer button, and Phones jack.
-- **Main Tuning Dial:** Heavy flywheel wheel with finger dimple. Rotates smoothly with mouse drag and mouse wheel.
-- **Under Main Dial:**
-  - Row 1: Up/Down tuning buttons (\`<< FAST DN\`, \`< SLOW DN\`, \`SLOW UP >\`, \`FAST UP >>\`).
-  - Row 2: Frequency step buttons (\`1Hz\`, \`10Hz\`, \`100Hz\`, \`1kHz\`, \`5kHz\`, \`9kHz MW AUS\`, \`10kHz\`, \`100kHz\`, \`1MHz\`).
-- **Iconic 21-Button Keypad:**
-  - White numeric buttons (\`0\`-\`9\`)
-  - **ORANGE** \`MHz\` button
-  - **BLUE** \`kHz\` button
-  - Red \`CE\` (Clear Entry) button
-  - Memory & Scan control buttons (\`MR\`, \`M>\`, \`SCAN\`, \`SKIP\`, \`PRI\`, \`TIME\`, \`TIMER\`, \`SET\`)
-  - Fine tuning Clarifier knob (-990 to +990 Hz) with Center 0 button.
+- **Display Window:** Authentic backlit green diffuser with high-contrast frequency readout, fluorescent S-meter bar graph, mode indicators, and clock/timer readouts.
+- **Top Deck (Right Column):**
+  - **TIMER & SET Controls:** On, Clear, Hour, Time buttons (compact buttons matching keypad button dimensions).
+- **Middle Deck (Right Column):**
+  - **Numeric Keypad (LEFT):** 3-column cream numeric keypad (1..9, CE, 0, ENT, MHz, kHz, .), enlarged vertically to fill space.
+  - **Memory & Scan Buttons (RIGHT):** Authentic dark grey buttons with white fonts (M Select, > VFO, P Scan, Pause, M Scan, S Scan, MR, VFO > M, VFO).
+- **Bottom Deck (Right Column):**
+  - **M CH & ATT Dials:** Positioned at the bottom of the front panel, matching the same level and height as the power button segment.
+  - **M CH Rotary Dial (LEFT):** 12 memory channels directly linked to Queensland MW & Pacific memory banks.
+  - **ATT (Attenuator) Rotary Dial (RIGHT):** DX (0 dB), 10 dB, 20 dB, LOCAL (-30 dB).
 
 ## How to Build in Visual Studio 2022
 1. Extract the downloaded ZIP file to any folder on your Windows 11 PC.
