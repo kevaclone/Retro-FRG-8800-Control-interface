@@ -646,10 +646,11 @@ export function App() {
           <button
             type="button"
             onClick={() => downloadVisualStudioZip(banks, frequencies, radioState, radioState.lcdTextColor)}
-            className="flex items-center gap-1 px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded text-xs transition-colors cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold rounded text-xs transition-colors cursor-pointer shadow-sm"
+            title="Download complete ZIP containing Run_In_Opera.bat, Run_In_Browser.bat, Web App, and VS2022 C++ Solution"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download VS2022 Solution (.ZIP)</span>
+            <span>Download Suite v1.1.3 & .bat Launchers (.ZIP)</span>
           </button>
         </div>
       </div>

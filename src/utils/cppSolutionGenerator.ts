@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { FrequencyEntry, MemoryBank, RadioState } from '../types/radio';
 import { getMainCppContent } from './mainCppTemplate';
+import { RUN_IN_OPERA_BAT, RUN_IN_BROWSER_BAT, VERSION_INFO_TXT, getAllWebAppFiles, toCRLF } from './batFiles';
 
 export interface GeneratedCppFile {
   filename: string;
@@ -606,6 +607,8 @@ This is a complete, native Windows 11 C++20 desktop application built specifical
 
 ## Front Panel Layout
 - **Chassis:** Authentic Yaesu Satin Lighter Grey Anodized finish.
+- **Main Tuning Dial:** Heavy flywheel dial with silver outer collar, knurled rubber rotor with finger dimple, and concentric spun silver aluminum centre cap just like the actual radio.
+- **Dials with Silver Outer Rings:** Tone, AF Gain, Squelch, Fine Tune, M CH, ATT, and Display Select dials all feature authentic machined silver outer rings.
 - **Speaker:** Acoustic horizontal louvers on the upper-left with silver Yaesu logo badge.
 - **Display Window:** Authentic backlit green diffuser with high-contrast frequency readout, fluorescent S-meter bar graph, mode indicators, and clock/timer readouts.
 - **Top Deck (Right Column):**
@@ -615,8 +618,8 @@ This is a complete, native Windows 11 C++20 desktop application built specifical
   - **Memory & Scan Buttons (RIGHT):** Authentic dark grey buttons with white fonts (M Select, > VFO, P Scan, Pause, M Scan, S Scan, MR, VFO > M, VFO).
 - **Bottom Deck (Right Column):**
   - **M CH & ATT Dials:** Positioned at the bottom of the front panel, matching the same level and height as the power button segment.
-  - **M CH Rotary Dial (LEFT):** 12 memory channels directly linked to Queensland MW & Pacific memory banks.
-  - **ATT (Attenuator) Rotary Dial (RIGHT):** DX (0 dB), 10 dB, 20 dB, LOCAL (-30 dB).
+  - **M CH Rotary Dial (LEFT):** 12 memory channels directly linked to Queensland MW & Pacific memory banks with silver outer ring.
+  - **ATT (Attenuator) Rotary Dial (RIGHT):** DX (0 dB), 10 dB, 20 dB, LOCAL (-30 dB) with silver outer ring.
 
 ## How to Build in Visual Studio 2022
 1. Extract the downloaded ZIP file to any folder on your Windows 11 PC.
@@ -668,7 +671,19 @@ This is a complete, native Windows 11 C++20 desktop application built specifical
       filename: 'build_win11.bat',
       description: 'One-click Batch Build Script for Developer Command Prompt',
       language: 'bat',
-      content: buildBatContent,
+      content: toCRLF(buildBatContent),
+    },
+    {
+      filename: 'Run_In_Opera.bat',
+      description: 'One-Click Automated Installer & Opera Browser Launcher',
+      language: 'bat',
+      content: RUN_IN_OPERA_BAT,
+    },
+    {
+      filename: 'Run_In_Browser.bat',
+      description: 'One-Click Automated Installer & Default Browser Launcher (Edge/Chrome)',
+      language: 'bat',
+      content: RUN_IN_BROWSER_BAT,
     },
     {
       filename: 'README_WIN11.md',
@@ -688,11 +703,31 @@ export async function downloadVisualStudioZip(
   const zip = new JSZip();
   const files = generateCppProjectFiles(banks, frequencies, radioState, lcdTextColor);
 
+  // 1. Add all web application source files and configs at the ROOT of the ZIP
+  try {
+    const webFiles = getAllWebAppFiles();
+    for (const wf of webFiles) {
+      zip.file(wf.path, wf.content);
+    }
+  } catch (err) {
+    console.warn('Could not bundle web source files:', err);
+  }
+
+  // 2. Ensure Run_In_Opera.bat, Run_In_Browser.bat, and VERSION_INFO.txt are guaranteed at the ROOT of the ZIP
+  zip.file('Run_In_Opera.bat', RUN_IN_OPERA_BAT);
+  zip.file('Run_In_Browser.bat', RUN_IN_BROWSER_BAT);
+  zip.file('VERSION_INFO.txt', VERSION_INFO_TXT);
+
+  // 3. Inside folder 'FRG8800_CAT_Win11' (the Visual Studio C++ project folder):
   const folder = zip.folder('FRG8800_CAT_Win11');
   if (folder) {
     for (const f of files) {
       folder.file(f.filename, f.content);
     }
+    // Also include the batch files and version info inside the folder so user can launch from anywhere
+    folder.file('Run_In_Opera.bat', RUN_IN_OPERA_BAT);
+    folder.file('Run_In_Browser.bat', RUN_IN_BROWSER_BAT);
+    folder.file('VERSION_INFO.txt', VERSION_INFO_TXT);
     const jsonBlob = JSON.stringify({ banks, frequencies }, null, 2);
     folder.file('frequencies_swp_qld.json', jsonBlob);
   }
@@ -701,7 +736,7 @@ export async function downloadVisualStudioZip(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'FRG8800_CAT_Win11_VS2022.zip';
+  a.download = 'FRG8800_CAT_Win11_Suite_v1.1.3.zip';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

@@ -110,12 +110,13 @@ export const CppVisualStudioBuilder: React.FC<CppVisualStudioBuilderProps> = ({
               onClick={handleDownloadSolution}
               disabled={downloadingZip}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-xs font-semibold text-slate-950 transition-colors cursor-pointer whitespace-nowrap shadow-sm"
+              title="Download complete ZIP containing Run_In_Opera.bat, Run_In_Browser.bat, full Web App, and Visual Studio 2022 C++ solution"
             >
               <Download className="w-3.5 h-3.5" />
               <span>
                 {downloadingZip
-                  ? 'Packaging Win11 Solution...'
-                  : 'Download VS2022 Solution (.ZIP)'}
+                  ? 'Packaging Complete Suite v1.1.3...'
+                  : 'Download Complete Suite v1.1.3 & .bat (.ZIP)'}
               </span>
             </button>
           </div>

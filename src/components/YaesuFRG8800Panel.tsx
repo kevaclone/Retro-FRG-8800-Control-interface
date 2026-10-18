@@ -554,7 +554,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
     <section aria-label="Yaesu FRG-8800 Hardware Front Panel" className="w-full select-none">
       {/* AUTHENTIC HARDWARE CHASSIS - Genuine Yaesu Satin Lighter Grey Anodized Aluminum */}
       {/* Made lighter grey per user requirement */}
-      <div className="relative rounded-2xl border-4 border-[#4d535f] p-4 sm:p-6 lg:p-7 text-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.95)] bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] w-full">
+      <div className="relative rounded-2xl border-4 border-[#4d535f] p-4 sm:p-6 lg:p-7 text-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.95)] bg-gradient-to-b from-[#3e444e] via-[#373c45] to-[#31363e] w-full">
         {/* CORNER HARDWARE HEX SCREWS */}
         <div className="absolute top-2.5 left-2.5 w-3.5 h-3.5 rounded-full bg-[#1b1e23] border border-white/20 flex items-center justify-center shadow-inner">
           <div className="w-2 h-0.5 bg-white/40 rotate-45" />
@@ -603,11 +603,11 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-stretch">
           {/* ========================================================================================= */}
           {/* 1. LEFT COLUMN: EXPANDED ACOUSTIC SPEAKER GRILL & BOTTOM CONTROLS DECK                     */}
-          {/* Made the exact same grey as the rest of the face panel per user requirement               */}
+          {/* Made the exact same light grey as the rest of the face panel                               */}
           {/* ========================================================================================= */}
-          <div className="lg:col-span-3 h-full flex flex-col justify-between gap-3.5 bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] p-3.5 sm:p-4 rounded-2xl border border-[#4d535f] shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]">
+          <div className="lg:col-span-3 h-full flex flex-col justify-between gap-3.5 bg-gradient-to-b from-[#3e444e] via-[#373c45] to-[#31363e] p-3 sm:p-3.5 pb-2.5 sm:pb-3 rounded-2xl border border-[#4d535f]/90">
             {/* ENLARGED AUTHENTIC ACOUSTIC SPEAKER GRILL (MATCHING FACE PANEL GREY) */}
-            <div className="flex-1 flex flex-col justify-between p-4 rounded-xl bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] border border-[#4d535f] shadow-[inset_0_2px_6px_rgba(0,0,0,0.35)] min-h-[300px]">
+            <div className="flex-1 flex flex-col justify-between p-4 rounded-xl bg-gradient-to-b from-[#3e444e] via-[#373c45] to-[#31363e] border border-[#4d535f] shadow-[inset_0_2px_6px_rgba(0,0,0,0.35)] min-h-[300px]">
               {/* YAESU METAL BADGE & LEGEND */}
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <div className="flex items-center gap-2">
@@ -693,15 +693,18 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 className="flex flex-col items-center cursor-ns-resize group select-none"
                 title="TONE Control: Drag up/down or mouse wheel (0 to 100)"
               >
-                <div className="relative w-11 h-11 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow-lg flex items-center justify-center group-hover:border-cyan-500/50">
-                  <div
-                    className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner"
-                    style={{
-                      transform: `rotate(${((state.toneLevel ?? 50) / 100) * 270 - 135}deg)`,
-                      transition: 'transform 0.05s ease-out',
-                    }}
-                  >
-                    <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-amber-400 rounded-full shadow-[0_0_3px_#fbbf24]" />
+                {/* Silver Outer Ring matching right side front panel dials */}
+                <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center group-hover:ring-1 group-hover:ring-amber-400/50 transition-all">
+                  <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-b from-[#8f96a3] to-[#454a54] border border-white/20 shadow-inner flex items-center justify-center">
+                    <div
+                      className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner flex items-center justify-center"
+                      style={{
+                        transform: `rotate(${((state.toneLevel ?? 50) / 100) * 270 - 135}deg)`,
+                        transition: 'transform 0.05s ease-out',
+                      }}
+                    >
+                      <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-amber-400 rounded-full shadow-[0_0_3px_#fbbf24]" />
+                    </div>
                   </div>
                 </div>
                 <span className="mt-1 text-[9px] font-mono font-bold tracking-wider text-slate-300">
@@ -719,15 +722,18 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 className="flex flex-col items-center cursor-ns-resize group select-none"
                 title="AF GAIN (Volume): Drag up/down or mouse wheel (0 to 100)"
               >
-                <div className="relative w-11 h-11 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow-lg flex items-center justify-center group-hover:border-teal-400/50">
-                  <div
-                    className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner"
-                    style={{
-                      transform: `rotate(${(state.afGain / 100) * 270 - 135}deg)`,
-                      transition: 'transform 0.05s ease-out',
-                    }}
-                  >
-                    <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-white rounded-full" />
+                {/* Silver Outer Ring matching right side front panel dials */}
+                <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center group-hover:ring-1 group-hover:ring-teal-400/50 transition-all">
+                  <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-b from-[#8f96a3] to-[#454a54] border border-white/20 shadow-inner flex items-center justify-center">
+                    <div
+                      className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner flex items-center justify-center"
+                      style={{
+                        transform: `rotate(${(state.afGain / 100) * 270 - 135}deg)`,
+                        transition: 'transform 0.05s ease-out',
+                      }}
+                    >
+                      <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-white rounded-full shadow-[0_0_2px_#ffffff]" />
+                    </div>
                   </div>
                 </div>
                 <span className="mt-1 text-[9px] font-mono font-bold tracking-wider text-slate-300">
@@ -745,15 +751,18 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 className="flex flex-col items-center cursor-ns-resize group select-none"
                 title="SQUELCH Dial: Drag up/down or mouse wheel (0 to 100)"
               >
-                <div className="relative w-11 h-11 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow-lg flex items-center justify-center group-hover:border-amber-400/50">
-                  <div
-                    className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner"
-                    style={{
-                      transform: `rotate(${(state.sqlLevel / 100) * 270 - 135}deg)`,
-                      transition: 'transform 0.05s ease-out',
-                    }}
-                  >
-                    <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-emerald-400 rounded-full shadow-[0_0_3px_#34d399]" />
+                {/* Silver Outer Ring matching right side front panel dials */}
+                <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center group-hover:ring-1 group-hover:ring-emerald-400/50 transition-all">
+                  <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-b from-[#8f96a3] to-[#454a54] border border-white/20 shadow-inner flex items-center justify-center">
+                    <div
+                      className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner flex items-center justify-center"
+                      style={{
+                        transform: `rotate(${(state.sqlLevel / 100) * 270 - 135}deg)`,
+                        transition: 'transform 0.05s ease-out',
+                      }}
+                    >
+                      <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-emerald-400 rounded-full shadow-[0_0_3px_#34d399]" />
+                    </div>
                   </div>
                 </div>
                 <span className="mt-1 text-[9px] font-mono font-bold tracking-wider text-slate-300">
@@ -1290,54 +1299,52 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                   </div>
                 </div>
 
-                {/* 2. MAIN MACHINED FLYWHEEL DIAL */}
+                {/* 2. MAIN MACHINED FLYWHEEL DIAL WITH SILVER OUTER RING AND SILVER CENTRE LIKE ACTUAL RADIO */}
                 <div
                   ref={dialRef}
                   onPointerDown={handleDialPointerDown}
                   onPointerMove={handleDialPointerMove}
                   onPointerUp={handleDialPointerUp}
                   onWheel={handleDialWheel}
-                  className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full flex items-center justify-center transition-all ${
+                  className={`relative w-36 h-36 sm:w-40 sm:h-40 rounded-full p-1 sm:p-1.5 bg-gradient-to-br from-[#e6eaef] via-[#a8b1bf] to-[#58606e] border-2 border-black shadow-[0_12px_28px_rgba(0,0,0,0.9),inset_0_2px_3px_rgba(255,255,255,0.85)] flex items-center justify-center transition-all ${
                     state.dialLocked
                       ? 'cursor-not-allowed opacity-80'
-                      : 'cursor-grab active:cursor-grabbing hover:shadow-[0_0_24px_rgba(255,255,255,0.08)]'
+                      : 'cursor-grab active:cursor-grabbing hover:shadow-[0_0_24px_rgba(255,255,255,0.2)]'
                   }`}
-                  style={{
-                    background:
-                      'radial-gradient(circle, #25282d 0%, #15171a 70%, #0a0b0d 100%)',
-                    boxShadow:
-                      '0 12px 28px rgba(0,0,0,0.85), inset 0 2px 4px rgba(255,255,255,0.15)',
-                  }}
+                  title="Main VFO Flywheel Tuning Dial: Drag to rotate or use mouse wheel (silver outer ring & silver centre like actual radio)"
                 >
-                  {/* Knurled Outer Rubber Rim */}
-                  <div className="absolute inset-1.5 rounded-full border-4 border-[#3a3f47] border-dashed opacity-50" />
+                  {/* Concentric Silver Beveled Collar Ring */}
+                  <div className="w-full h-full rounded-full bg-gradient-to-b from-[#9aa1ae] to-[#454b55] p-1 border border-white/30 shadow-inner flex items-center justify-center">
+                    {/* Rotating Knurled Rotor Body */}
+                    <div
+                      className="relative w-full h-full rounded-full bg-gradient-to-tr from-[#25282d] via-[#1a1c20] to-[#0d0e11] border border-black/80 shadow-inner flex items-center justify-center select-none"
+                      style={{
+                        transform: `rotate(${dialAngle}deg)`,
+                        transition: isDraggingDial ? 'none' : 'transform 0.05s ease-out',
+                      }}
+                    >
+                      {/* Knurled Outer Rubber Rim Grips */}
+                      <div className="absolute inset-1 rounded-full border-4 border-[#32363e] border-dashed opacity-60" />
 
-                  {/* Brushed Satin Center Disc */}
-                  <div
-                    className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-[#3a3e45] via-[#525862] to-[#25282c] border border-white/20 shadow-inner flex items-center justify-center"
-                    style={{
-                      transform: `rotate(${dialAngle}deg)`,
-                      transition: isDraggingDial ? 'none' : 'transform 0.05s ease-out',
-                    }}
-                  >
-                    {/* Subtle Spoke Texture */}
-                    <div className="absolute w-full h-0.5 bg-black/30" />
-                    <div className="absolute h-full w-0.5 bg-black/30" />
+                      {/* Finger Dimple for Rapid Spinning */}
+                      <div className="absolute top-1.5 sm:top-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-b from-[#181a1d] to-[#2a2d33] border border-white/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.9)] flex items-center justify-center">
+                        <div className="w-4 h-4 rounded-full bg-[#121416] shadow-inner border border-black/80" />
+                      </div>
 
-                    {/* Finger Dimple for Spinning */}
-                    <div className="absolute top-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-b from-[#181a1d] to-[#2a2d33] border border-white/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.9)] flex items-center justify-center">
-                      <div className="w-4 h-4 rounded-full bg-[#121416] shadow-inner" />
-                    </div>
-
-                    {/* Center Cap */}
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-b from-[#42464e] to-[#22252a] border border-white/20 shadow flex items-center justify-center">
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#101214]" />
+                      {/* AUTHENTIC SILVER CENTRE CAP / HUB LIKE ACTUAL RADIO */}
+                      <div className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-gradient-to-br from-[#f1f4f8] via-[#bcc4d0] to-[#5c6472] border border-black/80 shadow-[0_3px_6px_rgba(0,0,0,0.8),inset_0_1.5px_2px_rgba(255,255,255,0.9)] flex items-center justify-center z-10">
+                        {/* Lathe-Turned Spun Silver Disc */}
+                        <div className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#d4d9e2] via-[#eef2f7] to-[#99a2b0] border border-white/50 shadow-inner flex items-center justify-center">
+                          {/* Center Aluminum Spindle Pin */}
+                          <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-b from-[#8c94a2] to-[#3a3f47] border border-black/80 shadow-xs" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* 3. FINE TUNE DIAL (CLARIFIER) WITH 1 Hz & 10 Hz DIRECT TUNING CONTROLS */}
-                {/* Per user specification: "make the fine tune dial work and tune in 1hz and 10hz incriments" */}
+                {/* Per user specification: "redo the fine tune dial with a silver outer ring same as the dials on the right side" */}
                 <div className="flex flex-col items-center gap-2 bg-[#121417] p-2.5 rounded-xl border border-white/10 shadow-lg min-w-[130px]">
                   <div className="flex items-center justify-between w-full">
                     <span className="text-[9px] font-mono font-bold tracking-wider text-slate-300">
@@ -1360,14 +1367,17 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                       className="cursor-ns-resize group select-none"
                       title={`Drag up/down or mouse wheel to fine tune in ${fineTuneStep} Hz increments`}
                     >
-                      <div className="relative w-9 h-9 rounded-full bg-gradient-to-b from-[#4a5057] to-[#1e2124] border-2 border-black shadow flex items-center justify-center group-hover:border-cyan-500/50">
-                        <div
-                          className="w-6 h-6 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner"
-                          style={{
-                            transform: `rotate(${((state.clarifierHz || 0) / 990) * 180}deg)`,
-                          }}
-                        >
-                          <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-amber-400 rounded-full shadow-[0_0_4px_#fbbf24]" />
+                      {/* Silver Outer Ring matching right side front panel dials */}
+                      <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[#d4d8e0] via-[#9da3af] to-[#5a606d] border border-black shadow-[0_2px_4px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.7)] flex items-center justify-center group-hover:ring-1 group-hover:ring-cyan-400/50 transition-all">
+                        <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-b from-[#8f96a3] to-[#454a54] border border-white/20 shadow-inner flex items-center justify-center">
+                          <div
+                            className="w-7 h-7 rounded-full bg-gradient-to-b from-[#34383d] to-[#181a1c] border border-white/20 relative shadow-inner flex items-center justify-center"
+                            style={{
+                              transform: `rotate(${((state.clarifierHz || 0) / 990) * 180}deg)`,
+                            }}
+                          >
+                            <span className="absolute top-0.5 left-1/2 -translate-x-1/2 w-0.5 h-2 bg-amber-400 rounded-full shadow-[0_0_4px_#fbbf24]" />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1535,7 +1545,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
           {/*         + Memory & Scan Buttons (Right, Charcoal Grey with White Labels)    */}
           {/* Bottom: M CH Switch (Left, 1-6 & 7-12) + ATT Switch (Right, OFF/MIN to DX) */}
           {/* ========================================================================= */}
-          <div className="lg:col-span-4 h-full flex flex-col gap-3.5 bg-gradient-to-b from-[#3a3f47] via-[#32363d] to-[#282b31] p-3.5 sm:p-4 rounded-2xl border border-[#4d535f] shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)]">
+          <div className="lg:col-span-4 h-full flex flex-col justify-between gap-3 sm:gap-3.5 bg-gradient-to-b from-[#3e444e] via-[#373c45] to-[#31363e] p-3 sm:p-3.5 pb-2.5 sm:pb-3 rounded-2xl border border-[#4d535f]/90">
             {/* --------------------------------------------------------------------- */}
             {/* TOP DECK: TIMER / SET CONTROLS (LEFT) + DISPLAY SELECT ROTARY (RIGHT) */}
             {/* Matching Face Panel Grey Subpanel                                     */}
@@ -1793,7 +1803,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
             {/* Memory: 2 Cols x 4 Rows + Wide VFO (Dark Grey with White Labels Above) */}
             {/* Matching Face Panel Grey Subpanel - Expanded to close vertical gap    */}
             {/* --------------------------------------------------------------------- */}
-            <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-stretch justify-between gap-3 select-none flex-1 min-h-[380px]">
+            <div className="p-3 sm:p-4 py-3.5 sm:py-4.5 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-stretch justify-between gap-3 select-none flex-1 min-h-[420px]">
               {/* LEFT HALF: 3-COL NUMERIC KEYPAD */}
               <div className="flex-1 flex flex-col justify-between pr-2.5 border-r border-[#4d535f]/70">
                 {/* Buffer status banner if user is actively entering a frequency */}
@@ -1860,7 +1870,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleKeypadPress(n)}
-                        className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                        className={`h-8 sm:h-8.5 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
                           activeKey === n ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
                         }`}
                       >
@@ -1871,7 +1881,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 </div>
 
                 {/* Row 2: 4, 5, 6 */}
-                <div className="flex flex-col gap-0.5 mt-1">
+                <div className="flex flex-col gap-0.5 mt-1 sm:mt-1.5">
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     {['4', '5', '6'].map((n) => (
                       <span key={`lbl-${n}`} className="text-[8px] font-mono font-bold text-slate-300">
@@ -1885,7 +1895,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleKeypadPress(n)}
-                        className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                        className={`h-8 sm:h-8.5 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
                           activeKey === n ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
                         }`}
                       >
@@ -1896,7 +1906,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 </div>
 
                 {/* Row 3: 1, 2, 3 */}
-                <div className="flex flex-col gap-0.5 mt-1">
+                <div className="flex flex-col gap-0.5 mt-1 sm:mt-1.5">
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     {['1', '2', '3'].map((n) => (
                       <span key={`lbl-${n}`} className="text-[8px] font-mono font-bold text-slate-300">
@@ -1910,7 +1920,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                         key={n}
                         type="button"
                         onClick={() => handleKeypadPress(n)}
-                        className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                        className={`h-8 sm:h-8.5 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
                           activeKey === n ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
                         }`}
                       >
@@ -1921,7 +1931,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 </div>
 
                 {/* Row 4: 0, MHz (Orange), kHz (Blue) */}
-                <div className="flex flex-col gap-0.5 mt-1">
+                <div className="flex flex-col gap-0.5 mt-1 sm:mt-1.5">
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     <span className="text-[8px] font-mono font-bold text-slate-300">0</span>
                     <span className="text-[8px] font-mono font-bold text-orange-400">MHz</span>
@@ -1932,7 +1942,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('0')}
-                      className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                      className={`h-8 sm:h-8.5 rounded-sm bg-gradient-to-b from-[#e5dcbe] via-[#d6ccaa] to-[#baa983] hover:from-[#f0e7cb] border border-[#6f644b] text-[#1c1810] font-black font-mono text-xs sm:text-sm shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.7)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
                         activeKey === '0' ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5 shadow-inner' : ''
                       }`}
                     >
@@ -1942,7 +1952,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('MHz')}
-                      className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#f97316] via-[#ea580c] to-[#c2410c] hover:from-[#fb923c] border border-[#9a3412] text-white font-black font-mono text-xs shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                      className={`h-8 sm:h-8.5 rounded-sm bg-gradient-to-b from-[#f97316] via-[#ea580c] to-[#c2410c] hover:from-[#fb923c] border border-[#9a3412] text-white font-black font-mono text-xs shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
                         activeKey === 'MHz' ? 'ring-2 ring-white brightness-125 translate-y-0.5 shadow-inner' : ''
                       }`}
                       title="Commit entry in MHz (e.g. 14 -> 14.000 MHz)"
@@ -1953,7 +1963,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('kHz')}
-                      className={`h-7 sm:h-8 rounded-sm bg-gradient-to-b from-[#3b82f6] via-[#2563eb] to-[#1d4ed8] hover:from-[#60a5fa] border border-[#1e40af] text-white font-black font-mono text-xs shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
+                      className={`h-8 sm:h-8.5 rounded-sm bg-gradient-to-b from-[#3b82f6] via-[#2563eb] to-[#1d4ed8] hover:from-[#60a5fa] border border-[#1e40af] text-white font-black font-mono text-xs shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.45)] cursor-pointer active:translate-y-0.5 active:shadow-inner flex items-center justify-center transition-all select-none ${
                         activeKey === 'kHz' ? 'ring-2 ring-white brightness-125 translate-y-0.5 shadow-inner' : ''
                       }`}
                       title="Commit entry in kHz (e.g. 612 -> 612.000 kHz)"
@@ -1964,7 +1974,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                 </div>
 
                 {/* Row 5: Quick Utility Keys [. Dot, CE Clear, ENT Enter] */}
-                <div className="flex flex-col gap-0.5 mt-1.5 pt-1 border-t border-[#4d535f]/70">
+                <div className="flex flex-col gap-0.5 mt-1.5 pt-1.5 border-t border-[#4d535f]/70">
                   <div className="grid grid-cols-3 gap-1.5 text-center">
                     <span className="text-[7.5px] font-mono font-bold text-cyan-400">DOT</span>
                     <span className="text-[7.5px] font-mono font-bold text-amber-400">CLEAR</span>
@@ -1974,7 +1984,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('.')}
-                      className={`h-6 sm:h-6.5 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-cyan-300 font-black font-mono text-xs cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
+                      className={`h-6.5 sm:h-7 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-cyan-300 font-black font-mono text-xs cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
                         activeKey === '.' ? 'ring-2 ring-cyan-400 brightness-125 translate-y-0.5' : ''
                       }`}
                       title="Decimal Point (e.g. 7.1 MHz)"
@@ -1984,7 +1994,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('CE')}
-                      className={`h-6 sm:h-6.5 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-amber-300 font-black font-mono text-[10px] cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
+                      className={`h-6.5 sm:h-7 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-amber-300 font-black font-mono text-[10px] cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
                         activeKey === 'CE' ? 'ring-2 ring-amber-400 brightness-125 translate-y-0.5' : ''
                       }`}
                       title="Clear Entry (Backspace/Reset)"
@@ -1994,7 +2004,7 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => handleKeypadPress('ENT')}
-                      className={`h-6 sm:h-6.5 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-emerald-300 font-black font-mono text-[10px] cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
+                      className={`h-6.5 sm:h-7 rounded-sm bg-[#222730] hover:bg-[#2d3440] active:bg-[#1a1e24] border border-[#3e4655] text-emerald-300 font-black font-mono text-[10px] cursor-pointer active:translate-y-0.5 flex items-center justify-center transition-all ${
                         activeKey === 'ENT' ? 'ring-2 ring-emerald-400 brightness-125 translate-y-0.5' : ''
                       }`}
                       title="Direct Enter (Auto-tune entry)"
@@ -2022,20 +2032,20 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={() => onStepMemoryChannel(1)}
-                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      className="h-6.5 sm:h-7.5 rounded-xs bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-2 border-[#788599] shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f]"
                       title="M Select (Advance Memory Channel)"
                     />
                     <button
                       type="button"
                       onClick={handleMemToVfo}
-                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      className="h-6.5 sm:h-7.5 rounded-xs bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-2 border-[#788599] shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f]"
                       title="M > VFO (Transfer Memory Channel to VFO)"
                     />
                   </div>
                 </div>
 
                 {/* Row 2: P SCAN & PAUSE */}
-                <div className="flex flex-col gap-0.5 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1.5 sm:mt-2">
                   <div className="grid grid-cols-2 gap-2 text-center">
                     <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
                       P SCAN
@@ -2048,10 +2058,10 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={onTriggerScan}
-                      className={`h-6 sm:h-6.5 rounded-sm border shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5 ${
+                      className={`h-6.5 sm:h-7.5 rounded-xs border-2 shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f] ${
                         isScanning
-                          ? 'bg-amber-500 animate-pulse border-amber-400'
-                          : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#484f5c]'
+                          ? 'bg-amber-500 animate-pulse border-amber-300'
+                          : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#788599]'
                       }`}
                       title="P Scan (Programmed Scan)"
                     />
@@ -2060,14 +2070,14 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                       onClick={() => {
                         if (isScanning) onTriggerScan();
                       }}
-                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      className="h-6.5 sm:h-7.5 rounded-xs bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-2 border-[#788599] shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f]"
                       title="Pause Scan"
                     />
                   </div>
                 </div>
 
                 {/* Row 3: M SCAN & S SCAN */}
-                <div className="flex flex-col gap-0.5 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1.5 sm:mt-2">
                   <div className="grid grid-cols-2 gap-2 text-center">
                     <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
                       M SCAN
@@ -2080,20 +2090,20 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={onTriggerScan}
-                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      className="h-6.5 sm:h-7.5 rounded-xs bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-2 border-[#788599] shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f]"
                       title="M Scan (Memory Scan)"
                     />
                     <button
                       type="button"
                       onClick={onTriggerScan}
-                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      className="h-6.5 sm:h-7.5 rounded-xs bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-2 border-[#788599] shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f]"
                       title="S Scan (Search Scan)"
                     />
                   </div>
                 </div>
 
                 {/* Row 4: MR & VFO > M */}
-                <div className="flex flex-col gap-0.5 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1.5 sm:mt-2">
                   <div className="grid grid-cols-2 gap-2 text-center">
                     <span className="text-[8px] font-mono font-bold text-slate-200 truncate">
                       MR
@@ -2106,24 +2116,24 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                     <button
                       type="button"
                       onClick={onToggleVfoMem}
-                      className={`h-6 sm:h-6.5 rounded-sm border shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5 ${
+                      className={`h-6.5 sm:h-7.5 rounded-xs border-2 shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f] ${
                         state.vfoMode === 'MEM'
-                          ? 'bg-gradient-to-b from-[#1b434a] to-[#0f2a2e] border-teal-400 ring-1 ring-cyan-400/50'
-                          : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#484f5c]'
+                          ? 'bg-gradient-to-b from-[#1b434a] to-[#0f2a2e] border-teal-300 ring-1 ring-cyan-400/50'
+                          : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#788599]'
                       }`}
                       title="MR (Memory Recall / Step)"
                     />
                     <button
                       type="button"
                       onClick={handleVfoToMem}
-                      className="h-6 sm:h-6.5 rounded-sm bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border border-[#484f5c] shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5"
+                      className="h-6.5 sm:h-7.5 rounded-xs bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-2 border-[#788599] shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f]"
                       title="VFO > M (Store VFO to Memory)"
                     />
                   </div>
                 </div>
 
                 {/* Row 5: Full Width VFO Button */}
-                <div className="flex flex-col gap-0.5 mt-1.5">
+                <div className="flex flex-col gap-0.5 mt-1.5 sm:mt-2">
                   <div className="text-center">
                     <span className="text-[8px] font-mono font-bold text-slate-200">
                       VFO
@@ -2132,10 +2142,10 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onUpdateState({ vfoMode: 'VFO' })}
-                    className={`w-full h-6 sm:h-6.5 rounded-sm border shadow-[0_2px_3px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.18)] cursor-pointer active:translate-y-0.5 ${
+                    className={`w-full h-6.5 sm:h-7.5 rounded-xs border-2 shadow-[0_2px_4px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.35)] cursor-pointer active:translate-y-0.5 outline-1 outline-[#181a1f] ${
                       state.vfoMode === 'VFO'
-                        ? 'bg-gradient-to-b from-[#4d535f] to-[#343841] border-cyan-400/70 ring-1 ring-cyan-400/50'
-                        : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#484f5c]'
+                        ? 'bg-gradient-to-b from-[#4d535f] to-[#343841] border-cyan-400 ring-1 ring-cyan-400/50'
+                        : 'bg-gradient-to-b from-[#3a3f47] via-[#2c3037] to-[#1f2227] hover:from-[#454a53] border-[#788599]'
                     }`}
                     title="VFO Mode"
                   />
@@ -2145,10 +2155,10 @@ export const YaesuFRG8800Panel: React.FC<YaesuFRG8800PanelProps> = ({
 
             {/* --------------------------------------------------------------------- */}
             {/* BOTTOM DECK: M CH (LEFT, 1-6 & 7-12) + ATT (RIGHT, MIN/OFF TO DX)      */}
-            {/* Placed at the very bottom of the main panel frame (same as power deck) */}
+            {/* Moved down and aligned with bottom of face panel (matches speaker deck)*/}
             {/* Matching Face Panel Grey Subpanel                                     */}
             {/* --------------------------------------------------------------------- */}
-            <div className="p-3 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-center justify-between gap-3 select-none mt-auto flex-shrink-0 w-full">
+            <div className="p-3 rounded-xl bg-gradient-to-b from-[#2e333b] via-[#262930] to-[#1f2227] border border-[#4d535f]/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.4)] flex flex-row items-center justify-between gap-3 select-none flex-shrink-0 w-full">
               {/* 1. M CH ROTARY SWITCH (Header: ─── M CH ───, Left: 1..6, Right: 7..12) */}
               <div
                 className="flex-1 flex flex-col items-center select-none"

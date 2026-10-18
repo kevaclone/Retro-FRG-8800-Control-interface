@@ -176,7 +176,7 @@ export const WindowsMenuBar: React.FC<WindowsMenuBarProps> = ({
             >
               <span className="flex items-center gap-2">
                 <Download className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="font-semibold text-cyan-300">Download VS2022 C++ Solution (.ZIP)...</span>
+                <span className="font-semibold text-cyan-300">Download Complete Suite v1.1.3 & .bat Launchers (.ZIP)...</span>
               </span>
             </button>
 

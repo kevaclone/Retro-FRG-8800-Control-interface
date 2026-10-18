@@ -515,20 +515,37 @@ void DrawKnob(Graphics& g, float cx, float cy, float radius, float normVal, cons
     SolidBrush shadowBrush(Color(220, 8, 10, 12));
     g.FillEllipse(&shadowBrush, cx - radius + 2, cy - radius + 3, radius * 2, radius * 2);
 
-    LinearGradientBrush rimBrush(
+    // Silver Outer Ring / Skirt (same as right side dials per user requirement)
+    LinearGradientBrush skirtBrush(
         PointF(cx - radius, cy - radius),
         PointF(cx + radius, cy + radius),
-        Color(255, 95, 100, 105),
-        Color(255, 28, 30, 32)
+        Color(255, 215, 220, 228),
+        Color(255, 95, 102, 115)
     );
-    g.FillEllipse(&rimBrush, cx - radius, cy - radius, radius * 2, radius * 2);
+    g.FillEllipse(&skirtBrush, cx - radius, cy - radius, radius * 2, radius * 2);
+    Pen skirtBorder(Color(255, 15, 18, 22), 1.0f);
+    g.DrawEllipse(&skirtBorder, cx - radius, cy - radius, radius * 2, radius * 2);
 
-    SolidBrush capBrush(Color(255, 38, 41, 44));
-    g.FillEllipse(&capBrush, cx - radius * 0.78f, cy - radius * 0.78f, radius * 1.56f, radius * 1.56f);
+    // Concentric silver inner ring / bevel
+    float innerR = radius * 0.82f;
+    LinearGradientBrush innerBevel(
+        PointF(cx - innerR, cy - innerR),
+        PointF(cx + innerR, cy + innerR),
+        Color(255, 145, 152, 163),
+        Color(255, 68, 74, 82)
+    );
+    g.FillEllipse(&innerBevel, cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+
+    // Cylindrical dark knob head
+    float capR = radius * 0.68f;
+    SolidBrush capBrush(Color(255, 42, 45, 50));
+    g.FillEllipse(&capBrush, cx - capR, cy - capR, capR * 2, capR * 2);
+    Pen capBorder(Color(80, 255, 255, 255), 1.0f);
+    g.DrawEllipse(&capBorder, cx - capR, cy - capR, capR * 2, capR * 2);
 
     double angleRad = (-135.0 + normVal * 270.0 - 90.0) * 3.1415926535 / 180.0;
-    float ix = cx + static_cast<float>(std::cos(angleRad) * (radius * 0.72f));
-    float iy = cy + static_cast<float>(std::sin(angleRad) * (radius * 0.72f));
+    float ix = cx + static_cast<float>(std::cos(angleRad) * (capR * 0.90f));
+    float iy = cy + static_cast<float>(std::sin(angleRad) * (capR * 0.90f));
     Pen ptrPen(Color(255, 245, 245, 240), 2.0f);
     g.DrawLine(&ptrPen, cx, cy, ix, iy);
 
@@ -801,7 +818,7 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     DrawVerticalSwitch(g, BTN_SWITCH_NB,  RectF(centerLeft + 98.0f,  215.0f, 38.0f, 85.0f), L"NB",   L"ON",   L"OFF",  g_app.nbOn);
     DrawVerticalSwitch(g, BTN_SWITCH_DIM, RectF(centerLeft + 140.0f, 215.0f, 38.0f, 85.0f), L"DIM",  L"HI",   L"LO",   g_app.vfdBrightness >= 0.7f);
 
-    // MAIN TUNING FLYWHEEL DIAL
+    // MAIN TUNING FLYWHEEL DIAL WITH SILVER OUTER RING AND SILVER CENTRE LIKE ACTUAL RADIO
     float dcx = centerLeft + 275.0f;
     float dcy = 258.0f;
     float dr  = 54.0f;
@@ -809,32 +826,79 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     SolidBrush dialShadow(Color(200, 6, 8, 10));
     g.FillEllipse(&dialShadow, dcx - dr + 2, dcy - dr + 4, dr * 2, dr * 2);
 
-    LinearGradientBrush outerDial(
+    // 1. Silver Outer Ring / Collar (Same as actual radio)
+    LinearGradientBrush silverOuterRing(
         PointF(dcx - dr, dcy - dr),
         PointF(dcx + dr, dcy + dr),
-        Color(255, 110, 115, 120),
-        Color(255, 24, 26, 28)
+        Color(255, 230, 234, 242),
+        Color(255, 95, 102, 115)
     );
-    g.FillEllipse(&outerDial, dcx - dr, dcy - dr, dr * 2, dr * 2);
+    g.FillEllipse(&silverOuterRing, dcx - dr, dcy - dr, dr * 2, dr * 2);
+    Pen silverOuterPen(Color(255, 20, 22, 26), 1.5f);
+    g.DrawEllipse(&silverOuterPen, dcx - dr, dcy - dr, dr * 2, dr * 2);
 
-    SolidBrush knurlRing(Color(255, 18, 20, 22));
-    g.FillEllipse(&knurlRing, dcx - dr * 0.88f, dcy - dr * 0.88f, dr * 1.76f, dr * 1.76f);
+    // Stepped inner chamfer ring
+    float chamferR = dr * 0.92f;
+    LinearGradientBrush chamferBrush(
+        PointF(dcx - chamferR, dcy - chamferR),
+        PointF(dcx + chamferR, dcy + chamferR),
+        Color(255, 155, 162, 174),
+        Color(255, 68, 74, 82)
+    );
+    g.FillEllipse(&chamferBrush, dcx - chamferR, dcy - chamferR, chamferR * 2, chamferR * 2);
 
+    // 2. Knurled black rubber flywheel rotor
+    float rotorR = dr * 0.84f;
+    SolidBrush knurlRing(Color(255, 24, 26, 30));
+    g.FillEllipse(&knurlRing, dcx - rotorR, dcy - rotorR, rotorR * 2, rotorR * 2);
+    Pen knurlBorder(Color(255, 10, 12, 14), 1.0f);
+    g.DrawEllipse(&knurlBorder, dcx - rotorR, dcy - rotorR, rotorR * 2, rotorR * 2);
+
+    // Inner flywheel body
+    float innerR = dr * 0.72f;
     LinearGradientBrush innerDisc(
-        PointF(dcx - dr * 0.72f, dcy - dr * 0.72f),
-        PointF(dcx + dr * 0.72f, dcy + dr * 0.72f),
-        Color(255, 60, 64, 68),
-        Color(255, 32, 35, 38)
+        PointF(dcx - innerR, dcy - innerR),
+        PointF(dcx + innerR, dcy + innerR),
+        Color(255, 38, 42, 46),
+        Color(255, 18, 20, 22)
     );
-    g.FillEllipse(&innerDisc, dcx - dr * 0.72f, dcy - dr * 0.72f, dr * 1.44f, dr * 1.44f);
+    g.FillEllipse(&innerDisc, dcx - innerR, dcy - innerR, innerR * 2, innerR * 2);
 
+    // Finger dimple for spinning
     double rad = (g_app.dialAngleDeg - 90.0) * 3.1415926535 / 180.0;
     float dimpleX = dcx + static_cast<float>(std::cos(rad) * (dr * 0.50f));
     float dimpleY = dcy + static_cast<float>(std::sin(rad) * (dr * 0.50f));
     SolidBrush dimpleBrush(Color(255, 16, 18, 20));
-    g.FillEllipse(&dimpleBrush, dimpleX - 11.0f, dimpleY - 11.0f, 22.0f, 22.0f);
-    Pen dimpleRim(Color(120, 220, 225, 230), 1.5f);
-    g.DrawEllipse(&dimpleRim, dimpleX - 11.0f, dimpleY - 11.0f, 22.0f, 22.0f);
+    g.FillEllipse(&dimpleBrush, dimpleX - 10.0f, dimpleY - 10.0f, 20.0f, 20.0f);
+    Pen dimpleRim(Color(180, 220, 225, 235), 1.5f);
+    g.DrawEllipse(&dimpleRim, dimpleX - 10.0f, dimpleY - 10.0f, 20.0f, 20.0f);
+
+    // 3. Silver Centre Cap / Hub (Like the actual radio)
+    float hubR = dr * 0.32f;
+    LinearGradientBrush silverHubBrush(
+        PointF(dcx - hubR, dcy - hubR),
+        PointF(dcx + hubR, dcy + hubR),
+        Color(255, 240, 244, 250),
+        Color(255, 95, 102, 115)
+    );
+    g.FillEllipse(&silverHubBrush, dcx - hubR, dcy - hubR, hubR * 2, hubR * 2);
+    Pen silverHubBorder(Color(255, 25, 28, 32), 1.0f);
+    g.DrawEllipse(&silverHubBorder, dcx - hubR, dcy - hubR, hubR * 2, hubR * 2);
+
+    // Spun silver inner concentric disc
+    float hubInnerR = dr * 0.23f;
+    LinearGradientBrush spunDiscBrush(
+        PointF(dcx - hubInnerR, dcy - hubInnerR),
+        PointF(dcx + hubInnerR, dcy + hubInnerR),
+        Color(255, 212, 218, 226),
+        Color(255, 150, 158, 170)
+    );
+    g.FillEllipse(&spunDiscBrush, dcx - hubInnerR, dcy - hubInnerR, hubInnerR * 2, hubInnerR * 2);
+
+    // Center spindle pin
+    float pinR = dr * 0.08f;
+    SolidBrush pinBrush(Color(255, 60, 65, 72));
+    g.FillEllipse(&pinBrush, dcx - pinR, dcy - pinR, pinR * 2, pinR * 2);
 
     // =========================================================================
     // FINE TUNE DIAL (CLARIFIER) WITH 1 Hz & 10 Hz STEPPING (Per user requirement)
@@ -890,8 +954,16 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     // - Below keypads: "M Ch" dial (memories 1..12) and "ATT" dial (DX, 10dB, 20dB, LOCAL)
     // =========================================================================
     RectF rightPanel(904.0f, 16.0f, 430.0f, panelHeight - 20.0f);
-    g.FillRectangle(&panelRecess, rightPanel);
-    g.DrawRectangle(&sectionBorder, rightPanel);
+    // Authentic satin light grey anodized finish matching face panel (removes dark recess per user requirement)
+    LinearGradientBrush rightPanelBg(
+        PointF(rightPanel.X, rightPanel.Y),
+        PointF(rightPanel.X, rightPanel.Y + rightPanel.Height),
+        Color(255, 66, 72, 82),
+        Color(255, 52, 57, 65)
+    );
+    g.FillRectangle(&rightPanelBg, rightPanel);
+    Pen rightBorder(Color(255, 82, 90, 102), 1.2f);
+    g.DrawRectangle(&rightBorder, rightPanel);
 
     Color creamKeyFill(255, 214, 203, 178); // darker cream per user request
     Color creamKeyText(255, 24, 22, 20);
@@ -909,7 +981,7 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     // Matches authentic Yaesu FRG-8800 radio front panel photograph
     // -------------------------------------------------------------------------
     // Matching Yaesu front panel grey for right side decks per user request
-    RectF topDeck(914.0f, 18.0f, 410.0f, 116.0f);
+    RectF topDeck(914.0f, 18.0f, 410.0f, 114.0f);
     SolidBrush subPanelBg(Color(255, 46, 51, 59));
     g.FillRectangle(&subPanelBg, topDeck);
     Pen subPanelBorder(Color(255, 77, 83, 95), 1.0f);
@@ -922,7 +994,7 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
 
     // Separator line between left timer controls and right display select dial
     Pen colDivider(Color(255, 77, 83, 95), 1.0f);
-    g.DrawLine(&colDivider, 1100.0f, 22.0f, 1100.0f, 130.0f);
+    g.DrawLine(&colDivider, 1100.0f, 22.0f, 1100.0f, 128.0f);
 
     // 1. TIMER Section (Left half)
     Pen hdrLinePen(Color(255, 120, 130, 145), 1.0f);
@@ -1014,12 +1086,13 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     // -------------------------------------------------------------------------
     // MIDDLE DECK: NUMERIC KEYPAD (LEFT) + MEMORY & SCAN BUTTONS (RIGHT)
     // Keypad: 4 Rows x 3 Cols (7 8 9 / 4 5 6 / 1 2 3 / 0 MHz kHz)
-    // Memory: 2 Cols x 4 Rows + Wide VFO (Dark Grey with White Labels Above)
+    // Memory: 2 Cols x 4 Rows + Wide VFO (Dark Grey with White Labels & Lighter Surrounds)
+    // Expanded height (204px) to balance vertical gaps (~6-8px) across all segments
     // -------------------------------------------------------------------------
-    RectF midDeck(914.0f, 140.0f, 410.0f, 196.0f);
+    RectF midDeck(914.0f, 138.0f, 410.0f, 204.0f);
     g.FillRectangle(&subPanelBg, midDeck);
     g.DrawRectangle(&subPanelBorder, midDeck);
-    g.DrawLine(&colDivider, 1100.0f, 144.0f, 1100.0f, 332.0f);
+    g.DrawLine(&colDivider, 1100.0f, 142.0f, 1100.0f, 338.0f);
 
     // NUMERIC KEYPAD (3 Cols x 4 Rows, labels silkscreened ABOVE each button)
     struct KeyDef4x3 { int id; const wchar_t* label; int col; int row; Color fill; };
@@ -1032,14 +1105,14 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
 
     for (int i = 0; i < 12; ++i) {
         float kx = 926.0f + numKeys[i].col * 56.0f;
-        float ly = 144.0f + numKeys[i].row * 42.0f;
-        float ky = 155.0f + numKeys[i].row * 42.0f;
+        float ly = 143.0f + numKeys[i].row * 43.0f;
+        float ky = 154.0f + numKeys[i].row * 43.0f;
 
         // Label above button
         SolidBrush keyLblBrush(numKeys[i].col == 1 && numKeys[i].row == 3 ? Color(255, 251, 146, 60) : (numKeys[i].col == 2 && numKeys[i].row == 3 ? Color(255, 96, 165, 250) : whiteLabelText));
         g.DrawString(numKeys[i].label, -1, &tinyFont, PointF(kx + 25.0f, ly + 4.0f), &centerSf, &keyLblBrush);
 
-        addButton(numKeys[i].id, RectF(kx, ky, 50.0f, 20.0f), numKeys[i].label, numKeys[i].fill, (numKeys[i].row == 3 && numKeys[i].col > 0) ? Color(255, 255, 255, 255) : creamKeyText, &tinyFont);
+        addButton(numKeys[i].id, RectF(kx, ky, 50.0f, 21.0f), numKeys[i].label, numKeys[i].fill, (numKeys[i].row == 3 && numKeys[i].col > 0) ? Color(255, 255, 255, 255) : creamKeyText, &tinyFont);
     }
 
     // Row 4 Utility Keys: [. Dot, CE Clear, ENT Enter]
@@ -1052,11 +1125,11 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     };
     for (int i = 0; i < 3; ++i) {
         float kx = 926.0f + utilKeys[i].col * 56.0f;
-        float ky = 155.0f + 4 * 42.0f;
-        addButton(utilKeys[i].id, RectF(kx, ky, 50.0f, 18.0f), utilKeys[i].label, utilKeys[i].fill, utilKeys[i].textCol, &tinyFont);
+        float ky = 154.0f + 4 * 43.0f;
+        addButton(utilKeys[i].id, RectF(kx, ky, 50.0f, 19.0f), utilKeys[i].label, utilKeys[i].fill, utilKeys[i].textCol, &tinyFont);
     }
 
-    // MEMORY & SCAN BUTTONS (2 Columns x 4 Rows + Wide VFO, Dark Grey with White Labels Above)
+    // MEMORY & SCAN BUTTONS (2 Columns x 4 Rows + Wide VFO, Dark Grey with Distinct Lighter Surrounds & White Labels Above)
     struct MemDef { int id; const wchar_t* label; int col; int row; };
     MemDef memKeys[8] = {
         { BTN_M_SELECT, L"M SELECT", 0, 0 }, { BTN_TO_VFO,   L"M > VFO",  1, 0 },
@@ -1067,8 +1140,8 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
 
     for (int i = 0; i < 8; ++i) {
         float mx = 1114.0f + memKeys[i].col * 96.0f;
-        float mly = 144.0f + memKeys[i].row * 36.0f;
-        float mky = 154.0f + memKeys[i].row * 36.0f;
+        float mly = 143.0f + memKeys[i].row * 36.0f;
+        float mky = 153.0f + memKeys[i].row * 36.0f;
 
         g.DrawString(memKeys[i].label, -1, &tinyFont, PointF(mx + 44.0f, mly + 4.0f), &centerSf, &titleBrush);
 
@@ -1076,36 +1149,60 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
         if (memKeys[i].id == BTN_P_SCAN && g_app.isScanning) btnFill = Color(255, 245, 158, 11);
         if (memKeys[i].id == BTN_MR_MEM && g_app.vfoMode == 1) btnFill = Color(255, 27, 67, 74);
 
+        // DISTINCT LIGHTER SURROUND BEZEL around memory button (per user requirement)
+        RectF surroundRect(mx - 2.0f, mky - 2.0f, 92.0f, 24.0f);
+        SolidBrush surroundBezel(Color(255, 68, 75, 87));
+        g.FillRectangle(&surroundBezel, surroundRect);
+        Pen surroundPen(Color(255, 118, 130, 148), 1.2f);
+        g.DrawRectangle(&surroundPen, surroundRect);
+        Pen surroundHi(Color(255, 160, 172, 192), 1.0f);
+        g.DrawLine(&surroundHi, surroundRect.X, surroundRect.Y, surroundRect.X + surroundRect.Width, surroundRect.Y);
+        g.DrawLine(&surroundHi, surroundRect.X, surroundRect.Y, surroundRect.X, surroundRect.Y + surroundRect.Height);
+
+        // Inner tactile push button
         addButton(memKeys[i].id, RectF(mx, mky, 88.0f, 20.0f), L"", btnFill, darkGreyKeyText, &tinyFont);
+        Pen btnTopHi(Color(70, 255, 255, 255), 1.0f);
+        g.DrawLine(&btnTopHi, mx + 1.0f, mky + 1.0f, mx + 87.0f, mky + 1.0f);
     }
 
-    // Full width VFO button spanning both columns at Row 5
+    // Full width VFO button spanning both columns at Row 5 with matching lighter surround
     g.DrawString(L"VFO", -1, &tinyFont, PointF(1206.0f, 292.0f), &centerSf, &titleBrush);
-    addButton(BTN_VFO_WIDE, RectF(1114.0f, 302.0f, 192.0f, 22.0f), L"", (g_app.vfoMode == 0) ? Color(255, 77, 83, 95) : darkGreyKeyFill, darkGreyKeyText, &smallFont);
+    RectF vfoSurround(1112.0f, 301.0f, 196.0f, 26.0f);
+    SolidBrush vfoSurroundBezel(Color(255, 68, 75, 87));
+    g.FillRectangle(&vfoSurroundBezel, vfoSurround);
+    Pen vfoSurroundPen(Color(255, 118, 130, 148), 1.2f);
+    g.DrawRectangle(&vfoSurroundPen, vfoSurround);
+    Pen vfoSurroundHi(Color(255, 160, 172, 192), 1.0f);
+    g.DrawLine(&vfoSurroundHi, vfoSurround.X, vfoSurround.Y, vfoSurround.X + vfoSurround.Width, vfoSurround.Y);
+    g.DrawLine(&vfoSurroundHi, vfoSurround.X, vfoSurround.Y, vfoSurround.X, vfoSurround.Y + vfoSurround.Height);
+
+    addButton(BTN_VFO_WIDE, RectF(1114.0f, 303.0f, 192.0f, 22.0f), L"", (g_app.vfoMode == 0) ? Color(255, 77, 83, 95) : darkGreyKeyFill, darkGreyKeyText, &smallFont);
+    Pen vfoTopHi(Color(70, 255, 255, 255), 1.0f);
+    g.DrawLine(&vfoTopHi, 1115.0f, 304.0f, 1305.0f, 304.0f);
 
     // -------------------------------------------------------------------------
     // BOTTOM DECK: M CH (LEFT, 1-6 & 7-12) + ATT (RIGHT, MIN/OFF TO DX)
-    // Matches authentic Yaesu FRG-8800 radio front panel photograph
+    // Moved down flush with bottom of face panel (per user requirement)
     // -------------------------------------------------------------------------
-    RectF btmDeck(914.0f, 342.0f, 410.0f, 100.0f);
+    RectF btmDeck(914.0f, 350.0f, 410.0f, 104.0f);
     g.FillRectangle(&subPanelBg, btmDeck);
     g.DrawRectangle(&subPanelBorder, btmDeck);
-    g.DrawLine(&colDivider, 1100.0f, 346.0f, 1100.0f, 438.0f);
+    g.DrawLine(&colDivider, 1100.0f, 354.0f, 1100.0f, 450.0f);
 
     // 1. "M CH" ROTARY SWITCH (Header: ─── M CH ───, Left: 1..6, Right: 7..12)
-    g.DrawLine(&hdrLinePen, 922.0f, 350.0f, 980.0f, 350.0f);
-    g.DrawString(L"M CH", -1, &tinyFont, PointF(1007.0f, 350.0f), &centerSf, &titleBrush);
-    g.DrawLine(&hdrLinePen, 1034.0f, 350.0f, 1092.0f, 350.0f);
+    g.DrawLine(&hdrLinePen, 922.0f, 358.0f, 980.0f, 358.0f);
+    g.DrawString(L"M CH", -1, &tinyFont, PointF(1007.0f, 358.0f), &centerSf, &titleBrush);
+    g.DrawLine(&hdrLinePen, 1034.0f, 358.0f, 1092.0f, 358.0f);
 
     float mchCx = 1007.0f;
-    float mchCy = 398.0f;
+    float mchCy = 406.0f;
     float mchR  = 16.0f;
 
     // Left Ticks and Numbers: 6, 5, 4, 3, 2, 1
     int leftChs[6] = { 6, 5, 4, 3, 2, 1 };
     for (int idx = 0; idx < 6; ++idx) {
         int ch = leftChs[idx];
-        float ty = 362.0f + idx * 12.0f;
+        float ty = 370.0f + idx * 12.0f;
         bool active = (g_app.memoryChannel == ch);
         SolidBrush chBrush(active ? Color(255, 251, 191, 36) : whiteLabelText);
         wchar_t chStr[8];
@@ -1120,7 +1217,7 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     int rightChs[6] = { 7, 8, 9, 10, 11, 12 };
     for (int idx = 0; idx < 6; ++idx) {
         int ch = rightChs[idx];
-        float ty = 362.0f + idx * 12.0f;
+        float ty = 370.0f + idx * 12.0f;
         bool active = (g_app.memoryChannel == ch);
         SolidBrush chBrush(active ? Color(255, 251, 191, 36) : whiteLabelText);
         wchar_t chStr[8];
@@ -1144,12 +1241,12 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     g_buttons.push_back({ BTN_MCH_DIAL_KNOB, RectF(mchCx - mchR, mchCy - mchR, mchR * 2, mchR * 2), L"MCH_KNOB" });
 
     // 2. "ATT" (ATTENUATOR) ROTARY SWITCH (Header: ATT, Left: MIN & OFF, Right: DX)
-    g.DrawLine(&hdrLinePen, 1114.0f, 350.0f, 1195.0f, 350.0f);
-    g.DrawString(L"ATT", -1, &tinyFont, PointF(1210.0f, 350.0f), &centerSf, &titleBrush);
-    g.DrawLine(&hdrLinePen, 1225.0f, 350.0f, 1306.0f, 350.0f);
+    g.DrawLine(&hdrLinePen, 1114.0f, 358.0f, 1195.0f, 358.0f);
+    g.DrawString(L"ATT", -1, &tinyFont, PointF(1210.0f, 358.0f), &centerSf, &titleBrush);
+    g.DrawLine(&hdrLinePen, 1225.0f, 358.0f, 1306.0f, 358.0f);
 
     float attCx = 1210.0f;
-    float attCy = 398.0f;
+    float attCy = 406.0f;
     float attR  = 16.0f;
 
     // Top Tick at 12 o'clock
@@ -1158,24 +1255,24 @@ void RenderFrontPanel(Graphics& g, int width, int height) {
     // Left: MIN & Boxed OFF
     bool offActive = (g_app.attMode == 3);
     SolidBrush offBrush(offActive ? Color(255, 34, 211, 238) : whiteLabelText);
-    g.DrawString(L"MIN", -1, &tinyFont, PointF(1145.0f, 388.0f), &centerSf, &offBrush);
+    g.DrawString(L"MIN", -1, &tinyFont, PointF(1145.0f, 396.0f), &centerSf, &offBrush);
     Pen offBoxPen(offActive ? Color(255, 34, 211, 238) : Color(255, 180, 190, 205), 1.0f);
-    g.DrawRectangle(&offBoxPen, RectF(1135.0f, 396.0f, 20.0f, 12.0f));
-    g.DrawString(L"OFF", -1, &tinyFont, PointF(1145.0f, 402.0f), &centerSf, &offBrush);
-    g_buttons.push_back({ BTN_ATT_LOCAL_POS, RectF(1130.0f, 386.0f, 30.0f, 24.0f), L"OFF" });
+    g.DrawRectangle(&offBoxPen, RectF(1135.0f, 404.0f, 20.0f, 12.0f));
+    g.DrawString(L"OFF", -1, &tinyFont, PointF(1145.0f, 410.0f), &centerSf, &offBrush);
+    g_buttons.push_back({ BTN_ATT_LOCAL_POS, RectF(1130.0f, 394.0f, 30.0f, 24.0f), L"OFF" });
 
     // Intermediate: 20 dB & 10 dB
-    g.DrawString(L"20 dB", -1, &tinyFont, PointF(1160.0f, 366.0f), &centerSf, &titleBrush);
-    g_buttons.push_back({ BTN_ATT_20DB_POS, RectF(1148.0f, 360.0f, 26.0f, 14.0f), L"20 dB" });
+    g.DrawString(L"20 dB", -1, &tinyFont, PointF(1160.0f, 374.0f), &centerSf, &titleBrush);
+    g_buttons.push_back({ BTN_ATT_20DB_POS, RectF(1148.0f, 368.0f, 26.0f, 14.0f), L"20 dB" });
 
-    g.DrawString(L"10 dB", -1, &tinyFont, PointF(1260.0f, 366.0f), &centerSf, &titleBrush);
-    g_buttons.push_back({ BTN_ATT_10DB_POS, RectF(1248.0f, 360.0f, 26.0f, 14.0f), L"10 dB" });
+    g.DrawString(L"10 dB", -1, &tinyFont, PointF(1260.0f, 374.0f), &centerSf, &titleBrush);
+    g_buttons.push_back({ BTN_ATT_10DB_POS, RectF(1248.0f, 368.0f, 26.0f, 14.0f), L"10 dB" });
 
     // Right: DX
     bool dxActive = (g_app.attMode == 0);
     SolidBrush dxBrush(dxActive ? Color(255, 34, 211, 238) : whiteLabelText);
-    g.DrawString(L"DX", -1, &tinyFont, PointF(1275.0f, 400.0f), &centerSf, &dxBrush);
-    g_buttons.push_back({ BTN_ATT_DX_POS, RectF(1265.0f, 392.0f, 24.0f, 16.0f), L"DX" });
+    g.DrawString(L"DX", -1, &tinyFont, PointF(1275.0f, 408.0f), &centerSf, &dxBrush);
+    g_buttons.push_back({ BTN_ATT_DX_POS, RectF(1265.0f, 400.0f, 24.0f, 16.0f), L"DX" });
 
     // ATT Center Knob: Fluted Cylindrical Knob with Silver Skirt
     g.FillEllipse(&dispKnobShadow, attCx - attR + 1, attCy - attR + 2, attR * 2, attR * 2);
